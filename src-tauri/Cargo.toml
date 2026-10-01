@@ -1,0 +1,42 @@
+[package]
+name = "perseus"
+description = "Perseus: baixa faixas e playlists publicas do SoundCloud sem conta de usuario."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "perseus_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+perseus-core.workspace = true
+tauri.workspace = true
+tauri-plugin-opener.workspace = true
+tauri-plugin-dialog.workspace = true
+tauri-plugin-single-instance.workspace = true
+rfd = { version = "0.16", default-features = false, features = ["common-controls-v6"] }
+tokio.workspace = true
+tokio-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tracing-appender.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+perseus-core = { workspace = true, features = ["test-util"] }
+wiremock.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+tempfile.workspace = true
