@@ -1,0 +1,20 @@
+{
+  "name": "perseus",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Perseus: app desktop (Tauri + React + Rust). Desenvolvido por Isllan Toso.",
+  "author": "Isllan Toso",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icons": "tauri icon assets/icon-source.png --output src-tauri/icons"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.0"
+  }
+}
