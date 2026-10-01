@@ -1394,6 +1394,11 @@ button:disabled {
   transform: scaleX(-1);
 }
 
+:lang(ar) .stage {
+  scale: -1 1;
+  mask-image: linear-gradient(to left, transparent 0%, #000 45%), linear-gradient(to top, transparent 0%, #000 30%);
+}
+
 :lang(ar) *,
 :lang(hi) *,
 :lang(bn) *,
