@@ -1,37 +1,38 @@
 # Roadmap
 
-## Visao
-Perseus e o downloader open source mais robusto para conteudo **publico** do SoundCloud, sem conta de usuario:
-correto por padrao (nunca DRM, nunca previa disfarcada de faixa completa), resiliente a mudancas da API,
-observavel e facil de usar tanto por quem nao programa (instalador + app) quanto por automacao (CLI + JSON).
+## Vision
+Perseus is the most robust open-source downloader for **public** SoundCloud content, with no user account: correct
+by default (never DRM, never a preview disguised as a full track), resilient to API changes, observable, and easy to
+use both for non-programmers (installer + app) and for automation (CLI + JSON).
 
-## Principios que guiam as escolhas
-- Legitimidade antes de cobertura: so streams abertos; faixas indisponiveis sao explicadas, nao contornadas.
-- Idempotencia: rodar de novo nunca rebaixa o que ja esta integro.
-- Falha explicavel: todo erro chega ao usuario com causa e acao sugerida; todo evento tem `run_id`.
-- Distribuicao confiavel: artefatos verificaveis (checksum, provenance) e, quando possivel, assinados.
+## Principles behind the choices
+- Legitimacy over coverage: open streams only; unavailable tracks are explained, not worked around.
+- Idempotency: running again never re-downloads what is already intact.
+- Explainable failure: every error reaches the user with a cause and a suggested action; every event has a
+  `run_id`.
+- Trustworthy distribution: verifiable artifacts (checksums, provenance) and, whenever possible, signed ones.
 
-## Horizontes
-### Entregue (v0.2)
-Refatoracao VSA, UI React, testes, exe Windows (Python; substituido na v1.0).
+## Horizons
+### Shipped (v0.2)
+Vertical slice refactor, React UI, tests, Windows exe (Python; replaced in v1.0).
 
-### Agora (v1.0 — Rust + Tauri)
-Core assincrono em Rust, HLS paralelo, app Tauri 2 com IPC, CLI nativa, instalador NSIS, 11 idiomas; catalogo
-completo sem login (perfis, curtidas, albuns, relacionadas, busca), qualidade Melhor, templates, archive,
-biblioteca, sync nao destrutivo, `.m3u8`, retomada por Range; suite de testes por categoria com CI em 3 motores.
-(O arquivo original do artista foi descartado: exige login.)
+### Now (v1.0 — Rust + Tauri)
+Async Rust core, parallel HLS, Tauri 2 app over IPC, native CLI, NSIS installer, 11 languages; the full catalog
+without login (profiles, likes, albums, related tracks, search), Best quality, templates, archive, library,
+non-destructive sync, `.m3u8`, Range resume; a category-based test suite with CI on 3 engines; the online version on
+Vercel. (The artist's original file was dropped: it requires login.)
 
-### Proximo (v1.1 — o que o SoundCloud 2026 oferece e ninguem usa; backlog 15-26)
-- Estacoes e trending (`/discover/sets/...`), playlists curtidas, navegador de charts por regiao.
-- Preservacao (faixas da biblioteca que sumiram do SoundCloud), dedupe por ISRC, radar de artistas.
-- Busca avancada (Creative Commons, facetas), completar album a partir de um single.
+### Next (v1.1 — what SoundCloud offers in 2026 that nobody uses; backlog 15–26)
+- Stations and trending (`/discover/sets/...`), liked playlists, a chart browser by region.
+- Preservation (library tracks that disappeared from SoundCloud), ISRC deduplication, an artist radar.
+- Advanced search (Creative Commons, facets), completing an album from a single.
 
-### Depois (v1.2 — distribuicao)
-- Assinatura Authenticode e atualizacao automatica (`tauri-plugin-updater`).
-- Remux opcional com ffmpeg (MP4 fragmentado, conversao de formato).
-- Builds macOS/Linux do app.
+### Later (v1.2 — distribution)
+- Authenticode signing and automatic updates (`tauri-plugin-updater`).
+- Optional remuxing with ffmpeg (fragmented MP4, format conversion).
+- macOS/Linux builds of the app.
 
-### Futuro
-- i18n na CLI (a UI ja tem 11 idiomas).
-- Persistencia opcional do historico de jobs (hoje em memoria).
-- `perseus-core` como crate publica para uso programatico.
+### Future
+- i18n for the CLI (the UI already has 11 languages).
+- Optional persistence of job history (in memory today).
+- `perseus-core` as a public crate for programmatic use.

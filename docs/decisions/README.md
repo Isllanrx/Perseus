@@ -1,15 +1,15 @@
-# Decisoes de arquitetura
+# Architecture decisions
 
-Cada arquivo registra uma decisao: contexto, o que foi decidido, alternativas consideradas e consequencias.
+Each file records one decision: its context, what was decided, the alternatives considered and the consequences.
 
-| Decisao | Situacao |
+| Decision | Status |
 | --- | --- |
-| [Arquitetura em fatias verticais](arquitetura-fatias-verticais.md) | Em vigor |
-| [Ignorar robots.txt](robots-txt.md) | Em vigor |
-| [Sem contorno de DRM nem previas disfarcadas](sem-contorno-de-drm.md) | Em vigor |
-| [Reescrita do backend em Rust e app desktop Tauri 2](reescrita-rust-tauri.md) | Em vigor |
-| [Catalogo completo do perfil, biblioteca local e sync nao destrutivo](catalogo-biblioteca-sync.md) | Em vigor |
-| [Estrategia de testes por categoria](estrategia-de-testes.md) | Em vigor |
-| [Versao web na Vercel](versao-web-vercel.md) | Em vigor |
-| [Codigo sem comentarios](codigo-sem-comentarios.md) | Em vigor |
-| [Historico da v0.2 (Python)](historico-v0.2-python.md) | Substituido pela reescrita em Rust |
+| [Vertical slice architecture](vertical-slice-architecture.md) | Active |
+| [Ignore robots.txt](robots-txt.md) | Active |
+| [No DRM circumvention and no disguised previews](no-drm-circumvention.md) | Active |
+| [Rust backend rewrite and Tauri 2 desktop app](rust-tauri-rewrite.md) | Active |
+| [Full profile catalog, local library and non-destructive sync](profile-catalog-library-sync.md) | Active |
+| [Testing strategy by category](testing-strategy.md) | Active |
+| [Web version on Vercel](web-version-on-vercel.md) | Active |
+| [No comments in code](no-comments-in-code.md) | Active |
+| [v0.2 history (Python)](python-v0.2-history.md) | Superseded by the Rust rewrite |

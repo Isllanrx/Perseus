@@ -1,25 +1,25 @@
-# Ignorar robots.txt
+# Ignore robots.txt
 
-**Situacao:** Em vigor (2026-09-29)
+**Status:** Active (2026-09-29)
 
-## Contexto
-O Perseus nao consulta robots.txt. Na v0.2, o Scrapy era usado apenas contra a API JSON
-`api-v2.soundcloud.com` (resolve e lotes de faixas), consumida da mesma forma que o player web publico; nao ha
-navegacao/crawling de paginas HTML. As chamadas via `requests` nunca consultam robots.txt.
+## Context
+Perseus does not consult robots.txt. In v0.2, Scrapy was only used against the `api-v2.soundcloud.com` JSON API
+(resolve and track batches), consumed exactly as the public web player consumes it; there is no navigation or
+crawling of HTML pages. Calls made through `requests` never consulted robots.txt either.
 
-## Decisao
-`ROBOTSTXT_OBEY = False` fixo em `crawler/settings.py`.
+## Decision
+`ROBOTSTXT_OBEY = False`, fixed in `crawler/settings.py`.
 
-## Alternativas consideradas
-- **Obedecer robots.txt**: bloquearia os endpoints da API usados pelo proprio player e inviabilizaria o projeto.
+## Alternatives considered
+- **Obey robots.txt**: it would block the API endpoints the player itself uses and make the project unworkable.
 
-## Consequencias
-- Responsabilidade de uso e do usuario (README/Disclaimer).
-- Mitigacoes de impacto no servico: AutoThrottle, `DOWNLOAD_DELAY` com jitter, concorrencia limitada por
-  dominio, retry respeitando `Retry-After`, lotes de 50 IDs.
+## Consequences
+- Responsibility for use lies with the user (README/legal notice).
+- Mitigations for the impact on the service: AutoThrottle, `DOWNLOAD_DELAY` with jitter, per-domain concurrency
+  limits, retries that honor `Retry-After`, batches of 50 IDs.
 
-## Atualizacao (2026-09-30, reescrita em Rust)
-Sem Scrapy, a decisao continua valendo por construcao: o cliente Rust (reqwest) nunca consulta robots.txt e so
-acessa a API JSON e a CDN de midia. Mitigacoes de impacto no v1.0: concorrencia limitada (`workers` <= 16 faixas,
-6 segmentos HLS por faixa, 4 lotes de faixas por vez), retry com backoff exponencial e jitter respeitando
-`Retry-After` (teto de 60 s) e lotes de 50 IDs. O AutoThrottle do Scrapy deixou de existir.
+## Update (2026-09-30, Rust rewrite)
+Without Scrapy, the decision still holds by construction: the Rust client (reqwest) never consults robots.txt and
+only reaches the JSON API and the media CDN. Impact mitigations in v1.0: bounded concurrency (`workers` <= 16
+tracks, 6 HLS segments per track, 4 track batches at a time), retries with exponential backoff and jitter that honor
+`Retry-After` (capped at 60 s), and batches of 50 IDs. Scrapy's AutoThrottle no longer exists.

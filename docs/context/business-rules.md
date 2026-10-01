@@ -1,19 +1,28 @@
-# Regras de negocio
+# Business rules
 
-- Somente conteudo reproduzivel anonimamente. Sem login, sem OAuth, sem DRM.
-- Preferencia de stream (qualidade Compativel, padrao): progressive MP3 > progressive outros > HLS MP3 > HLS AAC > HLS Opus. Qualidade Melhor: maior bitrate estimado (`preset`), empate pela mesma ordem.
-- Arquivo original (`/download`) exige login: fora do produto.
-- Numeracao = posicao na playlist completa, mesmo quando so faixas novas sao baixadas (watch).
-- Pasta: `<artista da playlist> - <titulo>`; faixas avulsas em `Single Tracks/`.
-- Arquivo existente e valido (mesmo com outro prefixo numerico) e reaproveitado, nunca rebaixado.
-- `/albums` e `/sets` do perfil: uma pasta por playlist. Abas (likes, tracks, reposts, popular-tracks) e relacionadas viram uma playlist virtual.
-- Archive por pasta (`.perseus-archive.json`) manda sobre o nome do arquivo; biblioteca global copia faixa ja baixada em outra pasta e reescreve as tags para o novo contexto.
-- Sync (opt-in) move para `Removed/` o que saiu da playlist; nunca apaga. Desligado com `limit` ou download parcial (`only_track_ids`), porque a lista vista seria incompleta.
-- Nome de arquivo e unico por pasta: colisao (template sem `{id}` ou nome truncado) recebe ` [id]`; nunca se
-  reaproveita arquivo de outra faixa.
-- Dois downloads da mesma faixa na mesma pasta ao mesmo tempo (no app) sao serializados; o segundo reaproveita.
-- Filtro de duracao marca a faixa como indisponivel com codigo `filtered`; template de nome precisa de `{title}` ou `{id}`.
-- Espaco em disco estimado (bitrate x duracao) e checado antes de baixar; falta de espaco e erro fatal `insufficient_space`.
-- Watch: faixa concluida ou indisponivel e "settled"; falhas sao retentadas em ciclos ate `WATCH_MAX_TRACK_ATTEMPTS`, depois abandonadas com log de erro.
-- Erro de dominio (404, recurso nao suportado, URL invalida) encerra a execucao sem retry; falhas transitorias (rede, 429, 5xx, arquivo truncado) sao retentadas com backoff.
-- Relatorio `ok` exige: sem erro fatal, sem falhas, sem cancelamento. Indisponiveis nao quebram `ok`.
+- Only content that can be played anonymously. No login, no OAuth, no DRM.
+- Stream preference (Compatible quality, the default): progressive MP3 > other progressive > HLS MP3 > HLS AAC >
+  HLS Opus. Best quality: highest estimated bitrate (`preset`), ties broken by the same order.
+- The original file (`/download`) requires login: it is out of scope.
+- Numbering = position in the full playlist, even when only new tracks are downloaded (watch).
+- Folder: `<playlist artist> - <title>`; standalone tracks go to `Single Tracks/`.
+- An existing, valid file (even with a different number prefix) is reused, never downloaded again.
+- Profile `/albums` and `/sets`: one folder per playlist. Tabs (likes, tracks, reposts, popular-tracks) and related
+  tracks become a virtual playlist.
+- The per-folder archive (`.perseus-archive.json`) takes precedence over the file name; the global library copies a
+  track already downloaded to another folder and rewrites its tags for the new context.
+- Sync (opt-in) moves whatever left the playlist into `Removed/`; it never deletes. It is disabled with `limit` or
+  a partial download (`only_track_ids`), because the observed list would be incomplete.
+- File names are unique per folder: a collision (a template without `{id}`, or a truncated name) gets ` [id]`
+  appended; a file belonging to another track is never reused.
+- Two simultaneous downloads of the same track into the same folder (in the app) are serialized; the second one
+  reuses the first.
+- The length filter marks a track as unavailable with the `filtered` code; a name template must include `{title}`
+  or `{id}`.
+- Disk space is estimated (bitrate x duration) and checked before downloading; running out is the fatal error
+  `insufficient_space`.
+- Watch: a completed or unavailable track is "settled"; failures are retried in cycles up to
+  `WATCH_MAX_TRACK_ATTEMPTS`, then abandoned with an error log.
+- Domain errors (404, unsupported resource, invalid URL) end the run without retries; transient failures (network,
+  429, 5xx, truncated file) are retried with backoff.
+- A report is `ok` only with no fatal error, no failures and no cancellation. Unavailable tracks do not break `ok`.

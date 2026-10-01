@@ -1,84 +1,82 @@
 # xtask
 
-Automação do projeto, executada pelo Cargo: `cargo xtask <comando>` (alias em `.cargo/config.toml`). Nada daqui vai
-para o usuário, para o instalador ou para a Vercel.
+Project automation, run through Cargo: `cargo xtask <command>` (alias in `.cargo/config.toml`). Nothing here ships to
+users, the installer or Vercel.
 
-| Comando | O que faz |
+| Command | What it does |
 | --- | --- |
-| `comments` | Falha se algum arquivo de código tiver comentário que não seja diretiva de ferramenta de uma linha |
-| `comments --strip [--report <arquivo.md>]` | Remove os comentários com prova de que o código não mudou e lista o texto removido num `.md` (padrão: `target/comments-removed.md`) |
-| `help` | Lista os comandos |
+| `comments` | Fails if any source file has a comment other than a single-line tool directive |
+| `comments --strip [--report <file.md>]` | Removes comments with proof that the code did not change, and lists the removed text in a `.md` file (default: `target/comments-removed.md`) |
+| `help` | Lists the commands |
 
-## Política de comentários
+## Comment policy
 
-**Código não tem comentários.** Nomes, tipos e testes carregam o significado; explicação, decisão e processo ficam
-em `.md`: `README.md`, `CONTRIBUTING.md`, `scripts/README.md`, `docs/context/*.md` e as decisões em
-`docs/decisions/`. O relatório de cada remoção é gerado por `comments --strip --report` e não é versionado.
+**Code has no comments.** Names, types and tests carry the meaning; explanations, decisions and processes live in
+Markdown: `README.md`, `CONTRIBUTING.md`, `scripts/README.md`, `docs/context/*.md` and the decisions in
+`docs/decisions/`. The report of each removal is produced by `comments --strip --report` and is not committed.
 
-A única exceção é a **diretiva de ferramenta de uma linha**, que muda o comportamento de uma ferramenta:
+The only exception is a **single-line tool directive**, which changes how a tool behaves:
 
-| Linguagem | Diretivas mantidas |
+| Language | Directives kept |
 | --- | --- |
-| TypeScript/JavaScript | `// eslint-...`, `/* eslint-... */`, `// @ts-...`, `/// <reference .../>` e o shebang `#!` |
-| YAML | `# zizmor: ...`, `# yaml-language-server: ...`, `# shellcheck ...` e a versão depois de um `uses:` fixado por SHA (`@<sha> # v4.2.2`) |
+| TypeScript/JavaScript | `// eslint-...`, `/* eslint-... */`, `// @ts-...`, `/// <reference .../>` and the `#!` shebang |
+| YAML | `# zizmor: ...`, `# yaml-language-server: ...`, `# shellcheck ...` and the version after a SHA-pinned `uses:` (`@<sha> # v4.2.2`) |
 | TOML | `#:schema ...` |
 | PowerShell | `#Requires ...` |
-| Rust, CSS, HTML | nenhuma |
+| Rust, CSS, HTML | none |
 
-Uma diretiva com mais de uma linha não é diretiva: é comentário e sai.
+A directive spanning more than one line is not a directive: it is a comment and gets removed.
 
-### Doc comments do Rust que viram texto do programa
+### Rust doc comments that become program text
 
-Em Rust, `///` e `//!` são o atributo `#[doc]`, e alguns derives usam esse texto em tempo de execução: o `clap`
-(`Parser`, `Args`, `Subcommand`, `ValueEnum`) transforma cada doc comment na descrição do `--help`. Remover o
-comentário mudaria o programa. Nesses arquivos a descrição vai em atributo explícito
-(`#[arg(help = "...")]`, `#[value(help = "...")]`, `#[command(about = "...")]`) e o arquivo não pode ter doc
-comment; se tiver, o `comments` recusa o arquivo e diz por quê, em vez de removê-lo. O teste golden
-`crates/perseus-cli/tests/golden/help.txt` confirma que o `--help` continua idêntico.
+In Rust, `///` and `//!` are the `#[doc]` attribute, and some derives use that text at runtime: `clap` (`Parser`,
+`Args`, `Subcommand`, `ValueEnum`) turns each doc comment into `--help` text. Removing the comment would change the
+program. In those files the description goes in an explicit attribute (`#[arg(help = "...")]`,
+`#[value(help = "...")]`, `#[command(about = "...")]`) and the file may not contain doc comments; if it does,
+`comments` refuses the file and explains why instead of stripping it. The golden test
+`crates/perseus-cli/tests/golden/help.txt` confirms that `--help` stays identical.
 
-### Blocos que só tinham comentário
+### Blocks that only held a comment
 
-Um `catch { /* ignora */ }` vira `catch {}` e o ESLint (`no-empty`) passaria a acusar. O `catch` vazio é aceito
-(`no-empty` com `allowEmptyCatch` em `web/eslint.config.js`) porque significa "melhor esforço": armazenamento local
-indisponível, `.m3u8` ou tags opcionais. Qualquer outro bloco que fique vazio continua sendo erro de lint e precisa
-de código explícito.
+A `catch { /* ignore */ }` becomes `catch {}`, which ESLint (`no-empty`) would flag. An empty `catch` is allowed
+(`no-empty` with `allowEmptyCatch` in `web/eslint.config.js`) because it means "best effort": local storage
+unavailable, optional `.m3u8` or tags. Any other block left empty is still a lint error and needs explicit code.
 
-## Como a remoção é segura (sem regex)
+## Why removal is safe (no regex)
 
-Cada arquivo versionado (ou novo e não ignorado pelo `.gitignore`) é lido por um lexer da sua linguagem
-(`src/lexers.rs`), que conhece o que **não** é comentário:
+Every tracked file (or new file not ignored by `.gitignore`) is read by a lexer for its language
+(`src/lexers.rs`), which knows what is **not** a comment:
 
-- **Rust:** strings, raw strings (`r#"..."#`), byte strings, caracteres, lifetimes e comentários de bloco aninhados.
-- **TypeScript/JavaScript:** strings, template literals com `${...}` aninhados, expressões regulares (pelo contexto
-  do token anterior) e divisão.
-- **TSX/JSX:** texto e atributos JSX são conteúdo (apóstrofos e `//` de URLs não viram string nem comentário);
-  `{/* ... */}` sai junto com as chaves; genéricos em arrow functions (`<K extends X>(...)`, `<A, B>(...)`) não são
-  tags.
-- **CSS e HTML:** strings, atributos, e o CSS/JS dentro de `<style>`/`<script>`.
-- **TOML:** strings básicas, literais e multilinha.
-- **YAML:** escalares com aspas, blocos `|`/`>` e o shell dentro de `run:` (bash ou PowerShell, conforme `shell:` ou
-  o runner), com heredocs e here-strings.
-- **PowerShell (`.ps1`):** strings, here-strings e blocos `<# ... #>`.
+- **Rust:** strings, raw strings (`r#"..."#`), byte strings, chars, lifetimes and nested block comments.
+- **TypeScript/JavaScript:** strings, template literals with nested `${...}`, regular expressions (based on the
+  previous token) and division.
+- **TSX/JSX:** JSX text and attributes are content (apostrophes and the `//` in URLs never become strings or
+  comments); `{/* ... */}` is removed together with its braces; generics in arrow functions (`<K extends X>(...)`,
+  `<A, B>(...)`) are not tags.
+- **CSS and HTML:** strings, attributes, and the CSS/JS inside `<style>`/`<script>`.
+- **TOML:** basic, literal and multi-line strings.
+- **YAML:** quoted scalars, `|`/`>` blocks and the shell inside `run:` (bash or PowerShell, depending on `shell:` or
+  the runner), including heredocs and here-strings.
+- **PowerShell (`.ps1`):** strings, here-strings and `<# ... #>` blocks.
 
-Com `--strip`, um arquivo só é gravado se o resultado **passar por todas as provas**:
+With `--strip`, a file is only written if the result **passes every check**:
 
-1. o arquivo novo é lido de novo pelo mesmo lexer, sem erro;
-2. não sobra nenhum comentário além das diretivas;
-3. as diretivas continuam exatamente as mesmas;
-4. as linhas de código, com os comentários retirados, são idênticas às do original.
+1. the new file is read again by the same lexer without errors;
+2. no comment remains other than directives;
+3. the directives are exactly the same;
+4. the code lines, with comments removed, are identical to the original.
 
-Se qualquer prova falhar, o arquivo fica intacto e o motivo aparece na saída. Uma string ou bloco não terminado é
-erro, nunca palpite. Formatos que são documento ou dado (`.md`, `.json`, arquivos de ignore, `.gitattributes`) ficam
-fora.
+If any check fails, the file is left untouched and the reason is printed. An unterminated string or block is an
+error, never a guess. Document and data formats (`.md`, `.json`, ignore files, `.gitattributes`) are out of scope.
 
-## Procedimento
+## Procedure
 
 ```powershell
-cargo xtask comments                                   # checagem (a mesma do CI)
-cargo xtask comments --strip --report target/removidos.md
-cargo fmt --all                                        # a remocao pode deixar um enum ou lista que cabe numa linha
+cargo xtask comments                                   # the same check CI runs
+cargo xtask comments --strip --report target/removed.md
+cargo fmt --all                                        # removal can leave an enum or list that now fits on one line
 ```
 
-Depois, mova para o `.md` certo o que do relatório ainda for útil e rode as verificações do projeto
-(`pwsh scripts/test-all.ps1`). No CI, o workflow `.github/workflows/comments.yml` roda os testes do xtask e a
-checagem em cada push e pull request.
+Then move anything still useful from the report into the right `.md` file and run the project checks
+(`pwsh scripts/test-all.ps1`). In CI, the `.github/workflows/comments.yml` workflow runs the xtask tests and the
+check on every push and pull request.
