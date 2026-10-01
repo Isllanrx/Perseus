@@ -1,56 +1,58 @@
-# Backlog priorizado
+# Prioritized backlog
 
-Origem principal: analise comparativa com scdl-org/scdl, yt-dlp, yaaaarn/downcloud, imthaghost/scdl,
-jerry08/SoundCloudExplode e NotTobi/soundcloud-dl (2026-09-29). Esforco: P (<1 dia), M (1-3 dias), G (>3 dias).
+Main source: a comparative analysis of scdl-org/scdl, yt-dlp, yaaaarn/downcloud, imthaghost/scdl,
+jerry08/SoundCloudExplode and NotTobi/soundcloud-dl (2026-09-29). Effort: S (<1 day), M (1–3 days), L (>3 days).
 
-| # | Item | Prioridade | Esforco | Por que |
+| # | Item | Priority | Effort | Why |
 |---|---|---|---|---|
-| 1 | ~~Download do arquivo original~~ | Descartado | — | `/tracks/{id}/download` retorna 401 sem login; o produto e anonimo. |
-| 2 | ~~Perfis de usuario: uploads, likes, reposts, playlists~~ Concluido v1.0 | Alta | M | Hoje a URL de perfil retorna "recurso nao suportado"; scdl e downcloud baixam catalogos inteiros. Nova fatia `features/profile.rs` reaproveitando `download`. |
-| 3 | ~~Archive por track ID + modo sync~~ Concluido v1.0 (sync move para `Removed/`, nunca apaga) | Alta | M | Reaproveitamento atual depende do nome do arquivo; renomear titulo quebra. Archive por ID (arquivo local) torna idempotencia robusta; sync remove faixas saidas da playlist (opt-in, destrutivo — exigir confirmacao). |
-| 4 | ~~Templates de nome de arquivo~~ Concluido v1.0 | Media | P | Pedido comum (scdl `--name-format`). Validar placeholders e manter `sanitize_filename` + `ensure_within`. |
-| 5 | ~~HLS com segmentos em paralelo~~ | Concluido v1.0 | — | 6 segmentos por faixa, gravados em ordem, retry por segmento. |
-| 6 | ~~Geracao de `.m3u` por playlist~~ Concluido v1.0 (`.m3u8`) | Media | P | scdl gera; facilita importar em players. |
-| 7 | Remux opcional com ffmpeg (MP4 fragmentado de HLS AAC) e conversao de formato | Media | M | Resolve a heuristica de duracao do fMP4 (ver review) e habilita FLAC/Opus sob demanda. ffmpeg deve ser opcional, detectado no PATH. |
-| 8 | ~~Actions fixadas por SHA~~ | Concluido | — | Todas as actions por SHA; Dependabot mantem. |
-| 9 | Assinatura Authenticode do instalador | Alta (distribuicao) | P tecnico / custo de certificado | Unica mitigacao definitiva para SmartScreen/Defender. Depende de o mantenedor adquirir certificado. |
-| 10 | ~~Instalador com atalho e desinstalador~~ | Concluido v1.0 | — | NSIS do Tauri, por usuario, com bootstrapper do WebView2. |
-| 11 | ~~i18n da interface~~ (CLI continua pt-BR) | Concluido v1.0 | — | 11 idiomas no app; traduzir a CLI fica para depois se houver demanda. |
-| 12 | Persistencia opcional do historico de jobs | Baixa | P | Jobs vivem em memoria e somem ao fechar o app. |
-| 13 | Validar shortlink `on.soundcloud.com` e watch longo ao vivo | Media | P | Implementados e testados sem rede; falta evidencia com o SoundCloud real. |
-| 14 | Atualizacao automatica (`tauri-plugin-updater`) com assinatura | Media | M | Hoje o usuario baixa cada release manualmente. |
+| 1 | ~~Original file download~~ | Dropped | — | `/tracks/{id}/download` returns 401 without login; the product is anonymous. |
+| 2 | ~~User profiles: uploads, likes, reposts, playlists~~ Done in v1.0 | High | M | Profile URLs returned "unsupported resource"; scdl and downcloud download entire catalogs. A new `features/profile.rs` slice reusing `download`. |
+| 3 | ~~Archive by track ID + sync mode~~ Done in v1.0 (sync moves to `Removed/`, never deletes) | High | M | Reuse depended on the file name; renaming a title broke it. A per-ID archive (local file) makes idempotency robust; sync handles tracks that left the playlist (opt-in). |
+| 4 | ~~File name templates~~ Done in v1.0 | Medium | S | A common request (scdl `--name-format`). Validate placeholders and keep `sanitize_filename` + `ensure_within`. |
+| 5 | ~~HLS with parallel segments~~ | Done in v1.0 | — | 6 segments per track, written in order, per-segment retry. |
+| 6 | ~~`.m3u` generation per playlist~~ Done in v1.0 (`.m3u8`) | Medium | S | scdl generates one; makes importing into players easier. |
+| 7 | Optional remuxing with ffmpeg (fragmented MP4 from HLS AAC) and format conversion | Medium | M | Fixes the fMP4 duration heuristic (see the review) and enables FLAC/Opus on demand. ffmpeg must stay optional, detected on the PATH. |
+| 8 | ~~SHA-pinned actions~~ | Done | — | Every action pinned by SHA; Dependabot keeps them current. |
+| 9 | Authenticode signing of the installer | High (distribution) | S technically / certificate cost | The only definitive mitigation for SmartScreen/Defender. Depends on the maintainer buying a certificate. |
+| 10 | ~~Installer with shortcut and uninstaller~~ | Done in v1.0 | — | Tauri's NSIS, per user, with the WebView2 bootstrapper. |
+| 11 | ~~Interface i18n~~ (the CLI stays in pt-BR) | Done in v1.0 | — | 11 languages in the app; translating the CLI can wait for demand. |
+| 12 | Optional persistence of job history | Low | S | Jobs live in memory and disappear when the app closes. |
+| 13 | Validate `on.soundcloud.com` short links and long watch runs live | Medium | S | Implemented and tested offline; no evidence yet against the real SoundCloud. |
+| 14 | Automatic updates (`tauri-plugin-updater`) with signing | Medium | M | Users currently download every release by hand. |
 
-## Mapeamento do SoundCloud 2026 (endpoints extraidos do bundle web e testados sem login, 2026-09-30)
+## SoundCloud in 2026 (endpoints extracted from the web bundle and tested without login, 2026-09-30)
 
-Evidencia: `charts?kind=top` (usado por scdl/yt-dlp) retorna 404; charts agora sao playlists de `music-charts-{regiao}`
-listadas em `charts/selections`. Estacoes e trending sao `system-playlist` em `/discover/sets/<tipo>:<id>`.
-`users/:id/likes` mistura faixas e playlists (flume: 144 faixas + 7 playlists; hoje so faixas sao baixadas).
-Comentarios trazem `timestamp` em ms; `waveform_url` da 1800 amostras; 50% das faixas em trending tem ISRC;
-26% sao previa Go+. Todo HLS novo inclui `abr_sq` (master playlist, ja suportado).
+Evidence: `charts?kind=top` (used by scdl/yt-dlp) returns 404; charts are now `music-charts-{region}` playlists listed
+in `charts/selections`. Stations and trending are `system-playlist`s under `/discover/sets/<type>:<id>`.
+`users/:id/likes` mixes tracks and playlists (flume: 144 tracks + 7 playlists; only tracks are downloaded today).
+Comments carry a `timestamp` in ms; `waveform_url` provides 1,800 samples; 50% of trending tracks have an ISRC; 26%
+are Go+ previews. Every new HLS stream includes `abr_sq` (a master playlist, already supported).
 
-| # | Item | Prioridade | Esforco | Por que |
+| # | Item | Priority | Effort | Why |
 |---|---|---|---|---|
-| 15 | Estacoes e trending: `/discover/sets/artist-stations:ID`, `track-stations:ID`, `trending-by-genre:GENERO` | Alta | P | Validador de URL rejeita `:`; o modelo ja aceita `system-playlist`. Nenhum concorrente baixa estacoes. |
-| 16 | Playlists e albuns curtidos (`users/:id/likes` misto / `playlist_likes`) | Alta | P | Lacuna atual: `/likes` ignora playlists curtidas. Baixar como colecao, uma pasta por playlist. |
-| 17 | Navegador de charts por regiao e genero (`charts/selections`) | Alta | M | Endpoint antigo de charts morreu; ninguem mais oferece. |
-| 18 | Preservacao: detectar faixas da biblioteca removidas/privadas/Go+ no SoundCloud (`tracks?ids=` em lotes de 50) | Alta | M | Insight exclusivo: "voce tem a unica copia". Sem download, so metadados. |
-| 19 | Deduplicacao por ISRC + duracao entre reuploads (biblioteca) | Media | P | Mesma gravacao enviada por selo e artista vira uma so copia local. |
-| 20 | Radar de artistas: monitorar perfis (ou os `followings` de um usuario) e baixar uploads novos desde a ultima checagem | Media | M | Watch hoje e so de playlist; nenhum concorrente monitora artistas. |
-| 21 | Completar o album a partir de uma faixa (`tracks/:id/albums`) e "onde esta faixa aparece" (`playlists_without_albums`) | Media | P | Colou um single, o app oferece o album inteiro. |
-| 22 | Busca avancada: facetas de genero, `filter.created_at`, `filter.duration`, `filter.license=to_share` (Creative Commons), autocomplete `search/queries` | Media | P | CC = material liberado para remix/sample; nenhum downloader expoe. |
-| 23 | Momentos: waveform + mapa de calor dos comentarios com tempo; exportar comentarios como `.lrc` sincronizado | Baixa | M | Players mostram os comentarios no momento certo, como letra. |
-| 24 | Radio Perseus: estacao a partir de varios artistas-semente (`relatedartists` + estacoes), sem faixas ja na biblioteca | Baixa | M | Descoberta que so baixa novidade. |
-| 25 | Ficha do artista: `web-profiles`, verificado, estacao, spotlight (faixas fixadas) e `artist.json` na pasta | Baixa | P | Contexto do artista junto dos arquivos. |
-| 26 | Painel da biblioteca: horas, generos, artistas, bitrates, espaco, faixas com ISRC | Baixa | M | Visao do acervo; dados ja estao no archive/biblioteca. |
+| 15 | Stations and trending: `/discover/sets/artist-stations:ID`, `track-stations:ID`, `trending-by-genre:GENRE` | High | S | The URL validator rejects `:`; the model already accepts `system-playlist`. No competitor downloads stations. |
+| 16 | Liked playlists and albums (mixed `users/:id/likes` / `playlist_likes`) | High | S | Current gap: `/likes` ignores liked playlists. Download them as a collection, one folder per playlist. |
+| 17 | Chart browser by region and genre (`charts/selections`) | High | M | The old charts endpoint is dead; nobody offers this anymore. |
+| 18 | Preservation: detect library tracks removed, made private or moved to Go+ on SoundCloud (`tracks?ids=` in batches of 50) | High | M | A unique insight: "you have the only copy". Metadata only, no download. |
+| 19 | Deduplication by ISRC + duration across re-uploads (library) | Medium | S | The same recording uploaded by both label and artist becomes a single local copy. |
+| 20 | Artist radar: watch profiles (or a user's `followings`) and download new uploads since the last check | Medium | M | Watch is playlist-only today; no competitor watches artists. |
+| 21 | Complete an album from a single track (`tracks/:id/albums`) and "where does this track appear" (`playlists_without_albums`) | Medium | S | Paste a single and the app offers the whole album. |
+| 22 | Advanced search: genre facets, `filter.created_at`, `filter.duration`, `filter.license=to_share` (Creative Commons), `search/queries` autocomplete | Medium | S | CC means material cleared for remixing/sampling; no downloader exposes it. |
+| 23 | Moments: waveform + a heat map of timed comments; export comments as a synced `.lrc` | Low | M | Players show the comments at the right moment, like lyrics. |
+| 24 | Perseus Radio: a station built from several seed artists (`relatedartists` + stations), skipping tracks already in the library | Low | M | Discovery that only downloads what is new. |
+| 25 | Artist card: `web-profiles`, verified badge, station, spotlight (pinned tracks) and an `artist.json` in the folder | Low | S | Artist context alongside the files. |
+| 26 | Library dashboard: hours, genres, artists, bitrates, disk usage, tracks with an ISRC | Low | M | An overview of the collection; the data is already in the archive/library. |
 
-Descartados (exigem login ou assinatura): arquivo original (`/download` 401), Go+ `hq` 256 kbps, sets personalizados
-(`weekly`, `new-for-you` 404 anonimo), estatisticas `/you/insights` e `stats/timeseries` (so o dono).
+Dropped (they require login or a subscription): the original file (`/download` 401), Go+ `hq` 256 kbps, personalized
+sets (`weekly`, `new-for-you` return 404 anonymously), `/you/insights` and `stats/timeseries` statistics (owner
+only).
 
-## Qualidade e robustez (achados da suite de testes, 2026-09-30)
+## Quality and robustness (findings from the test suite, 2026-09-30)
 
-| # | Item | Prioridade | Esforco | Por que |
+| # | Item | Priority | Effort | Why |
 |---|---|---|---|---|
-| 27 | Lock entre processos no `.part` (CLI e app baixando a mesma pasta ao mesmo tempo) | Media | P | O lock atual e so dentro do processo; `fs4` ja e dependencia. |
-| 28 | CI do core Rust tambem em Linux | Media | P | Hoje so Windows; paths e permissoes de arquivo divergem. |
-| 29 | Build e E2E do app no macOS/Linux (WebKit real do Tauri) | Baixa | M | O E2E em WebKit roda so contra o front com IPC simulado. |
-| 30 | Aumentar o score de mutacao de `describe.ts`/`translate.ts` (88%) | Baixa | P | Sobreviventes restantes sao strings e ramos de fallback. |
+| 27 | Cross-process lock on the `.part` (CLI and app downloading into the same folder at once) | Medium | S | The current lock only works within a process; `fs4` is already a dependency. |
+| 28 | Rust core CI on Linux too | Medium | S | Windows only today; paths and file permissions differ. |
+| 29 | App build and E2E on macOS/Linux (Tauri's real WebKit) | Low | M | WebKit E2E only runs against the frontend with mocked IPC. |
+| 30 | Raise the mutation score of `describe.ts`/`translate.ts` (88%) | Low | S | The remaining survivors are strings and fallback branches. |
+| 31 | Raise the mutation score of the online version (`web/src/lib/web`) | Medium | S | A partial run on 2026-09-30 showed ~77% overall once `lib/web` was included, below the 93.4% measured before it existed. |

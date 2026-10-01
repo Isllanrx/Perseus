@@ -5,175 +5,178 @@
 <h1 align="center">Perseus</h1>
 
 <p align="center">
-  Downloader de faixas, álbuns e playlists públicas do SoundCloud, sem conta de usuário.<br>
-  <em>Cole o link, veja as faixas, baixe com capa e título. E deixe ele de olho nas próximas.</em>
+  Download public SoundCloud tracks, albums and playlists, no account required.<br>
+  <em>Paste a link, review the tracks, get them with cover art and titles. Then let it watch for new ones.</em>
 </p>
 
 <p align="center">
   <a href="https://github.com/Isllanrx/Perseus/actions/workflows/ci.yml"><img src="https://github.com/Isllanrx/Perseus/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/Isllanrx/Perseus"><img src="https://api.scorecard.dev/projects/github.com/Isllanrx/Perseus/badge" alt="OpenSSF Scorecard"></a>
   <a href="https://github.com/Isllanrx/Perseus/releases/latest"><img src="https://img.shields.io/github/v/release/Isllanrx/Perseus?include_prereleases&sort=semver" alt="Release"></a>
-  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011%20x64-0078D4" alt="Plataforma">
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011%20x64-0078D4" alt="Platform">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
 </p>
 
 <p align="center">
   <a href="https://github.com/Isllanrx/Perseus/releases/latest"><b>Download</b></a> ·
-  <a href="https://github.com/Isllanrx/Perseus/issues"><b>Reportar um bug</b></a>
+  <a href="https://perseus.isllan.dev"><b>Use it online</b></a> ·
+  <a href="https://github.com/Isllanrx/Perseus/issues"><b>Report a bug</b></a>
 </p>
 
 <p align="center">
-  <img src="assets/interface.png" width="860" alt="Tela inicial do Perseus: campo para colar o link do SoundCloud, modos Lista completa, Só esta faixa e Monitorizar, botão Transferir e seletor de idioma">
+  <img src="assets/interface.png" width="860" alt="Perseus home screen: a field to paste a SoundCloud link, download modes, the Download button and the language selector">
 </p>
 
-O Perseus baixa faixas, álbuns, playlists e perfis públicos do SoundCloud e entrega arquivos prontos para ouvir:
-título, artista, álbum, número da faixa e capa, organizados em uma pasta por playlist. Não precisa de conta nem de
-login. No modo **Monitorar**, ele verifica a playlist em intervalos regulares e baixa só as faixas novas.
+Perseus downloads public SoundCloud tracks, albums, playlists and profiles and hands you files that are ready to
+play: title, artist, album, track number and cover art, organized into one folder per playlist. No account, no
+login. In **Watch** mode it checks a playlist at regular intervals and downloads only the new tracks.
 
-Núcleo em **Rust** (tokio), janela **Tauri 2** e interface **React**: um instalador de ~5 MB, sem servidor local
-nem subprocessos. Também há uma [versão online](docs/versao-online.md) que roda no navegador, inclusive no celular.
+The core is written in **Rust** (tokio), the window is a **Tauri 2** app and the interface is **React**: a ~5 MB
+installer with no local server and no subprocesses. There is also an [online version](docs/online-version.md) that
+runs in the browser, phones included.
 
 > [!IMPORTANT]
-> **Projeto educacional.** O Perseus baixa apenas streams abertos que qualquer visitante anônimo consegue
-> reproduzir no site. Ele **não contorna DRM**: streams criptografados e prévias de 30 segundos do SoundCloud Go+
-> são recusados por design. Respeite os [Termos de Uso do SoundCloud](https://soundcloud.com/terms-of-use) e os
-> direitos autorais dos artistas. Veja o [Aviso legal](#aviso-legal).
+> **Educational project.** Perseus only downloads open streams that any anonymous visitor can play on the site. It
+> **does not circumvent DRM**: encrypted streams and 30-second SoundCloud Go+ previews are refused by design.
+> Respect the [SoundCloud Terms of Use](https://soundcloud.com/terms-of-use) and the artists' copyright. See the
+> [Legal notice](#legal-notice).
 
-## Recursos
+## Features
 
-- **Tudo o que o SoundCloud expõe sem login:** faixas, álbuns, playlists (inclusive privadas com `secret_token`),
-  shortlinks `on.soundcloud.com`, abas do perfil (enviadas, populares, reposts, curtidas, álbuns, playlists),
-  faixas relacionadas e busca por nome.
-- **Veja antes de baixar:** a lista mostra, antes do download, quais faixas estão indisponíveis e por quê (DRM,
-  prévia do Go+, bloqueio regional).
-- **Qualidade:** *Compatível* (MP3) ou *Melhor* (maior bitrate aberto, como AAC 160 kbps).
-- **Nada é baixado duas vezes:** arquivo de controle por pasta, biblioteca local que copia faixas já baixadas
-  em outra pasta sem usar a rede, e retomada por HTTP Range se a conexão cair.
-- **Arquivos íntegros:** cada faixa é validada antes de receber o nome final; tags ID3v2.3, MP4 ou Opus com
-  ISRC, gênero, gravadora e capa em 500x500 ou original.
-- **Organização:** template de nome, filtros de duração, playlist `.m3u8` e sincronização que move para
-  `Removed\` o que saiu da playlist, sem nunca apagar arquivos.
-- **Rápido:** downloads paralelos, segmentos HLS em paralelo e conexões HTTP/2 reaproveitadas.
-- **Aplicativo e CLI**, interface em 11 idiomas (inclui árabe em RTL) e logs estruturados em JSON.
+- **Everything SoundCloud exposes without login:** tracks, albums, playlists (including private ones shared with a
+  `secret_token`), `on.soundcloud.com` short links, profile tabs (uploads, popular, reposts, likes, albums,
+  playlists), related tracks and search by name.
+- **Know before you download:** the track list shows up front which tracks are unavailable and why (DRM, Go+
+  preview, region lock).
+- **Quality:** *Compatible* (MP3) or *Best available* (the highest open bitrate, such as 160 kbps AAC).
+- **Nothing is downloaded twice:** a per-folder archive, a local library that copies tracks already downloaded to
+  another folder without touching the network, and HTTP Range resume when the connection drops.
+- **Intact files:** every track is validated before it gets its final name; ID3v2.3, MP4 or Opus tags with ISRC,
+  genre, label and cover art at 500x500 or original resolution.
+- **Organized output:** file name templates, length filters, an `.m3u8` playlist, and a sync option that moves
+  tracks removed from the playlist into `Removed\` instead of ever deleting your files.
+- **Fast:** parallel downloads, parallel HLS segments and reused HTTP/2 connections.
+- **App and CLI**, an interface in 11 languages (including right-to-left Arabic) and structured JSON logs.
 
-Comparação com scdl, yt-dlp e outras ferramentas em [docs/comparativo.md](docs/comparativo.md).
+See how it compares with scdl, yt-dlp and other tools in [docs/comparison.md](docs/comparison.md).
 
-## Instalação
+## Installation
 
-Requer Windows 10 ou 11 (64 bits). O instalador baixa o Microsoft WebView2 se ele faltar.
+Requires Windows 10 or 11 (64-bit). The installer fetches Microsoft WebView2 if it is missing.
 
-1. Baixe `Perseus_<versão>_x64-setup.exe` em [Releases](https://github.com/Isllanrx/Perseus/releases).
-2. Confira a integridade com o `SHA256SUMS` publicado na release:
+1. Download `Perseus_<version>_x64-setup.exe` from [Releases](https://github.com/Isllanrx/Perseus/releases).
+2. Verify it against the `SHA256SUMS` file published with the release:
 
    ```powershell
-   Get-FileHash .\Perseus_<versão>_x64-setup.exe -Algorithm SHA256
+   Get-FileHash .\Perseus_<version>_x64-setup.exe -Algorithm SHA256
    ```
 
-3. Execute o instalador. Ele instala só para o seu usuário, sem pedir administrador.
+3. Run the installer. It installs for your user only and never asks for administrator rights.
 
-Para a linha de comando, extraia `perseus-cli.exe` de `perseus-cli-<versão>-win-x64.zip` em uma pasta do `PATH`.
+For the command line, extract `perseus-cli.exe` from `perseus-cli-<version>-win-x64.zip` into a folder on your
+`PATH`.
 
 > [!NOTE]
-> Enquanto o instalador não tiver assinatura de código, o SmartScreen pode avisar na primeira execução
-> (**Mais informações** → **Executar assim mesmo**). Confira sempre o SHA-256 antes.
+> Until the installer is code-signed, SmartScreen may warn you on first launch (**More info** → **Run anyway**).
+> Always check the SHA-256 first.
 
-## Uso
+## Usage
 
-### Aplicativo
+### App
 
-1. Cole o link de uma faixa, álbum, playlist ou perfil, ou digite um nome e clique em **Buscar**.
-2. Escolha o modo: **Playlist inteira**, **Só esta faixa** ou **Monitorar**.
-3. Em **Ajustes**, defina pasta de destino, downloads simultâneos, qualidade, template do nome, filtros e opções
-   de biblioteca, `.m3u8` e sincronização.
-4. Clique em **Baixar**. O progresso aparece faixa a faixa; **Cancelar** interrompe na hora e **Abrir pasta** leva
-   direto aos arquivos.
+1. Paste a link to a track, album, playlist or profile, or type a name and click **Search**.
+2. Pick a mode: **Whole playlist**, **This track only** or **Watch**.
+3. Under **Settings**, choose the destination folder, simultaneous downloads, quality, file names, length filters
+   and the library, `.m3u8` and sync options.
+4. Click **Download**. Progress is shown track by track; **Cancel** stops right away and **Open folder** takes you
+   straight to the files.
 
-### Linha de comando
+### Command line
 
 ```powershell
-perseus-cli "https://soundcloud.com/usuario/sets/playlist"                 # playlist ou álbum
-perseus-cli --info "https://soundcloud.com/usuario/sets/playlist"          # só metadados e disponibilidade
-perseus-cli "https://soundcloud.com/usuario/likes" --quality best --max-duration 900
-perseus-cli --search "flickermood"                                          # buscar e escolher
+perseus-cli "https://soundcloud.com/user/sets/playlist"                     # playlist or album
+perseus-cli --info "https://soundcloud.com/user/sets/playlist"              # metadata and availability only
+perseus-cli "https://soundcloud.com/user/likes" --quality best --max-duration 900
+perseus-cli --search "flickermood"                                          # search and pick a result
 perseus-cli URL --name-template "{artist} - {title} [{id}]" --sync
-perseus-cli URL --watch --interval 120                                      # monitorar a cada 2 minutos
-perseus-cli URL --workers 8 --log-format json --report-json report.json     # automação
+perseus-cli URL --watch --interval 120                                      # check every 2 minutes
+perseus-cli URL --workers 8 --log-format json --report-json report.json     # automation
 ```
 
-Todas as opções: `perseus-cli --help`. Variáveis opcionais: `SOUNDCLOUD_CLIENT_ID` (identificador manual) e
-`PERSEUS_LOG` (filtro de log, sintaxe `tracing`).
+All options: `perseus-cli --help`. Optional environment variables: `SOUNDCLOUD_CLIENT_ID` (manual client id) and
+`PERSEUS_LOG` (log filter, `tracing` syntax).
 
-| Código de saída | Significado |
+| Exit code | Meaning |
 | --- | --- |
-| `0` | Sucesso |
-| `1` | Sucesso parcial: rode de novo para tentar só as faixas que faltam |
-| `2` | Entrada inválida |
-| `3` | Falha de API ou de rede |
-| `130` | Interrompido (Ctrl+C) |
+| `0` | Success |
+| `1` | Partial success: run it again to retry only the missing tracks |
+| `2` | Invalid input |
+| `3` | API or network failure |
+| `130` | Interrupted (Ctrl+C) |
 
-## Onde o Perseus guarda arquivos
+## Where Perseus keeps files
 
 ```text
-%LOCALAPPDATA%\Perseus\                 aplicativo, cache (12 h), data\library.json e data\logs\ (últimos 7 dias)
-%USERPROFILE%\Music\Perseus\            destino padrão
-├── <Artista> - <Playlist>\             .perseus-archive.json, <Playlist>.m3u8 e Removed\ (--sync)
-└── Single Tracks\                      faixas avulsas
+%LOCALAPPDATA%\Perseus\                 app, cache (12 h), data\library.json and data\logs\ (last 7 days)
+%USERPROFILE%\Music\Perseus\            default destination
+├── <Artist> - <Playlist>\              .perseus-archive.json, <Playlist>.m3u8 and Removed\ (--sync)
+└── Single Tracks\                      standalone tracks
 ```
 
-## Solução de problemas
+## Troubleshooting
 
-| Sintoma | O que verificar |
+| Symptom | What to check |
 | --- | --- |
-| Faixa "protegida por DRM" ou "apenas prévia de 30s" | Não é um bug: o Perseus não contorna DRM nem baixa prévias do Go+ |
-| "bloqueada para a sua região" ou "não retornada pela API" | A faixa é restrita no seu país, é privada ou foi removida |
-| "Não foi possível obter um client_id válido" | Verifique conexão e proxy; se persistir, use `SOUNDCLOUD_CLIENT_ID` e abra uma issue |
-| Algumas faixas falharam (código `1`) | Rode de novo: só o que falta é baixado |
-| O aplicativo não abre | A caixa de diálogo indica o motivo e a pasta de logs; reinstalar reinstala o WebView2 |
+| A track is "DRM protected" or "30-second preview only" | Not a bug: Perseus never circumvents DRM or downloads Go+ previews |
+| "blocked in your region" or "not returned by the API" | The track is restricted in your country, private or removed |
+| "Couldn't connect to SoundCloud" | Check your connection and proxy; if it persists, set `SOUNDCLOUD_CLIENT_ID` and open an issue |
+| Some tracks failed (exit code `1`) | Run it again: only what is missing gets downloaded |
+| The app won't start | A dialog shows the reason and the log folder; reinstalling also reinstalls WebView2 |
 
-Ao abrir uma issue, anexe o log da execução (`%LOCALAPPDATA%\Perseus\data\logs` ou `--log-file` na CLI) e o
-`run_id` mostrado no resumo.
+When opening an issue, attach the log of the failed run (`%LOCALAPPDATA%\Perseus\data\logs`, or `--log-file` on the
+CLI) and the `run_id` shown in the summary.
 
-## Segurança
+## Security
 
-O Perseus não abre portas, não coleta telemetria, só aceita links de `soundcloud.com`, só baixa via HTTPS de hosts
-de mídia do SoundCloud e nunca apaga arquivos seus. Nomes de arquivo são saneados para que nenhum título escape da
-pasta de destino. Relate vulnerabilidades de forma privada: [SECURITY.md](SECURITY.md).
+Perseus opens no ports, collects no telemetry, only accepts `soundcloud.com` links, only downloads over HTTPS from
+SoundCloud media hosts and never deletes your files. File names are sanitized so no title can escape the
+destination folder. Report vulnerabilities privately: [SECURITY.md](SECURITY.md).
 
-## Desenvolvimento
+## Development
 
-Requer [Rust 1.90+](https://rustup.rs/) (toolchain MSVC no Windows) e [Node.js 24+](https://nodejs.org/).
+Requires [Rust 1.90+](https://rustup.rs/) (MSVC toolchain on Windows) and [Node.js 24+](https://nodejs.org/).
 
 ```powershell
-npm ci; npm ci --prefix web          # dependências
-npm run dev                          # aplicativo com hot reload
-npm run build                        # instalador em target\release\bundle\nsis\
-pwsh scripts/test-all.ps1            # todas as suítes (-Sanity rápido, -Full com fuzz, desempenho e mutação)
+npm ci; npm ci --prefix web          # dependencies
+npm run dev                          # app with hot reload
+npm run build                        # installer in target\release\bundle\nsis\
+pwsh scripts/test-all.ps1            # every suite (-Sanity for a quick pass, -Full adds fuzz, performance, mutation)
 ```
 
-| Documento | Conteúdo |
+| Document | Contents |
 | --- | --- |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Validação, suítes de teste, padrões, CI/CD e release |
-| [docs/context](docs/context) | Arquitetura, regras de negócio, segurança, padrões e glossário |
-| [docs/decisions](docs/decisions) | Decisões de arquitetura e o porquê de cada uma |
-| [docs/versao-online.md](docs/versao-online.md) | Publicação na Vercel e custos do plano Hobby |
-| [scripts/README.md](scripts/README.md) / [xtask/README.md](xtask/README.md) | Automação local e política de comentários |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Validation, test suites, standards, CI/CD and releases |
+| [docs/context](docs/context) | Architecture, business rules, security, coding standards and glossary |
+| [docs/decisions](docs/decisions) | Architecture decisions and the reasoning behind each one |
+| [docs/online-version.md](docs/online-version.md) | Deploying to Vercel and staying within the Hobby plan |
+| [scripts/README.md](scripts/README.md) / [xtask/README.md](xtask/README.md) | Local automation and the no-comments policy |
 
-## Aviso legal
+## Legal notice
 
-O Perseus é publicado **para fins educacionais**: um estudo de como construir um downloader com engenharia segura.
-Não é um produto comercial.
+Perseus is published **for educational purposes**: a study in building a downloader with sound engineering. It is
+not a commercial product.
 
-- O software é fornecido **"como está", sem garantia de nenhum tipo**, conforme a licença MIT, e **o autor não
-  assume responsabilidade** por danos causados pelo uso, modificação ou redistribuição.
-- Baixar conteúdo do SoundCloud pode violar os Termos de Uso do serviço e os direitos dos artistas. **Você decide se
-  vai usar e arca com as consequências.** Baixe apenas o que você tem direito de guardar.
-- O Perseus não contorna DRM nem qualquer outra medida técnica de proteção.
-- O Perseus não é afiliado, endossado nem patrocinado pelo SoundCloud. SoundCloud e o logotipo são marcas do
+- The software is provided **"as is", without warranty of any kind**, under the MIT license, and **the author
+  accepts no liability** for damage caused by its use, modification or redistribution.
+- Downloading SoundCloud content may violate the service's Terms of Use and the artists' rights. **Whether you use
+  it is your decision, and so are the consequences.** Only download what you are entitled to keep.
+- Perseus does not circumvent DRM or any other technical protection measure.
+- Perseus is not affiliated with, endorsed or sponsored by SoundCloud. SoundCloud and its logo are trademarks of
   SoundCloud Global Limited & Co. KG.
 
-## Licença
+## License
 
-[MIT](LICENSE). Desenvolvido e mantido por **Isllan Toso** ([isllan.dev](https://isllan.dev/)). Construído sobre
+[MIT](LICENSE). Built and maintained by **Isllan Toso** ([isllan.dev](https://isllan.dev/)). Powered by
 [Tauri](https://tauri.app/), [tokio](https://tokio.rs/), [reqwest](https://github.com/seanmonstar/reqwest),
 [lofty](https://github.com/Serial-ATA/lofty-rs), [m3u8-rs](https://github.com/rutgersc/m3u8-rs),
-[React](https://react.dev/) e [Vite](https://vite.dev/).
+[React](https://react.dev/) and [Vite](https://vite.dev/).

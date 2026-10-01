@@ -1,124 +1,137 @@
-# Arquitetura
+# Architecture
 
 ## Stack
-Rust 1.90+ (edition 2024), workspace Cargo: tokio, reqwest 0.13 (rustls/aws-lc, HTTP/2), serde, lofty 0.25
-(tags/validacao), m3u8-rs 6, tracing (+ subscriber JSON e appender rotativo), clap 4, directories. App desktop:
-Tauri 2.12 (WebView2), plugins opener, dialog e single-instance. Front-end: React 19, TypeScript 6, Vite 8,
-`@tauri-apps/api` 2. Instalador: NSIS do Tauri bundler. Decisao: [reescrita em Rust e Tauri](../decisions/reescrita-rust-tauri.md).
+Rust 1.90+ (edition 2024) in a Cargo workspace: tokio, reqwest 0.13 (rustls/aws-lc, HTTP/2), serde, lofty 0.25
+(tags and validation), m3u8-rs 6, tracing (with a JSON subscriber and a rolling appender), clap 4, directories.
+Desktop app: Tauri 2.12 (WebView2) with the opener, dialog and single-instance plugins. Frontend: React 19,
+TypeScript 6, Vite 8, `@tauri-apps/api` 2. Installer: NSIS through the Tauri bundler. Decision:
+[Rust and Tauri rewrite](../decisions/rust-tauri-rewrite.md).
 
 ## Workspace
-- `crates/perseus-core` — dominio, sem Tauri. Vertical Slice:
+- `crates/perseus-core` — the domain, with no Tauri dependency. Vertical slices:
   - `features/inspect.rs`, `features/download/` (engine, audio, hls, planning, naming, validation, tagging,
-    library [archive por pasta + biblioteca global], models), `features/watch.rs` (compoe download pela API publica `run_download`).
+    library [per-folder archive + global library], models), `features/watch.rs` (built on top of download through
+    its public `run_download` API).
   - `shared/` — config, error, http, retry, filesystem, format, `soundcloud/` (auth, client, models, transcoding,
     urls).
-  - `events.rs` — `Event` tipado + `Reporter` (log estruturado + sink do adaptador).
-- `crates/perseus-cli` — binario `perseus-cli` (clap). Sem regra de negocio.
-- `src-tauri` — binario `perseus` (janela). `commands.rs` (IPC), `jobs.rs` (JobManager), `dto.rs` (contrato).
-- `crates/perseus-web` — backend HTTP da versao online (Axum): so metadados; `api/` — adaptador da funcao Vercel
-  (`vercel_runtime`). Decisao: [versao web na Vercel](../decisions/versao-web-vercel.md).
-- `xtask` — automacao (`cargo xtask comments`: politica de [codigo sem comentarios](../decisions/codigo-sem-comentarios.md)). So `std`; nao entra no
-  app, no instalador nem na funcao da Vercel.
-- `web/` — React; `dist/` e embutido pelo `tauri::generate_context!` em tempo de compilacao. `vite --mode web` gera a
-  versao online (mesma UI, backend do navegador em `src/lib/web`).
+  - `events.rs` — the typed `Event` plus the `Reporter` (structured log + adapter sink).
+- `crates/perseus-cli` — the `perseus-cli` binary (clap). No business rules.
+- `src-tauri` — the `perseus` binary (the window). `commands.rs` (IPC), `jobs.rs` (JobManager), `dto.rs` (contract).
+- `crates/perseus-web` — HTTP backend for the online version (Axum), metadata only; `api/` — the Vercel function
+  adapter (`vercel_runtime`). Decision: [web version on Vercel](../decisions/web-version-on-vercel.md).
+- `xtask` — automation (`cargo xtask comments`: the [no-comments policy](../decisions/no-comments-in-code.md)).
+  `std` only; it never ships in the app, the installer or the Vercel function.
+- `web/` — React; `dist/` is embedded by `tauri::generate_context!` at compile time. `vite --mode web` builds the
+  online version (same UI, with the in-browser backend in `src/lib/web`).
 
-## Fluxo de download
-1. Adaptador canonicaliza a URL (`SoundCloudClient::canonicalize`: allowlist + expansao de shortlink hop a hop).
+## Download flow
+1. The adapter canonicalizes the URL (`SoundCloudClient::canonicalize`: allowlist plus hop-by-hop short-link
+   expansion).
 2. `run_download(client, request, cancel, reporter)`:
-   - `resolve` -> `plan_download` (numeracao pela posicao na playlist completa, pasta, `ensure_within`).
-   - Stubs hidratados via `fetch_tracks` (lotes de 50, ate 4 em paralelo, ordem preservada).
-   - `build_job` por faixa (`choose_transcoding`; DRM/previa/regiao viram `unavailable`).
-   - Faixas completas viram tarefas imediatamente; os lotes de stubs sao consultados em paralelo
-     (`buffer_unordered(4)`) e cada lote agenda suas faixas ao chegar (paridade com o spider Scrapy da v0.2).
-     Falha de lote marca so as faixas daquele lote; faixa ausente na resposta vira `not_returned`.
-   - `Scheduler::claim_unique_name`: nomes de arquivo unicos por pasta (semeado pelo archive); template sem `{id}`
-     que colida, ou nome truncado em 200 caracteres, ganha ` [id]`.
-   - Cada job vira uma tarefa tokio num `JoinSet`, limitada por `Semaphore(workers)`; panico numa tarefa vira falha
-     da faixa (mapa `task::Id -> track_id`); cancelamento por `CancellationToken` (futuro descartado; `.part`
-     removido pelo guard `PartFile`).
-   - `DownloadReport.stats` (`DownloadStats`): selecionadas, agendadas, tentativas, retries da faixa, retries de
-     transporte (contador `task_local` por job em `http::count_transport_retries`, reaplicado em cada tarefa do
-     `JoinSet`), copias da biblioteca, movidas para `Removed/`, bytes/s.
-3. `AudioFetcher::download`, sob um lock por arquivo final (mapa global de `Weak<Mutex>`, chave minuscula): dois
-   jobs do mesmo processo nunca escrevem o mesmo `.part`. Ordem: arquivo ja na pasta (pelo archive, depois pelo
-   nome) -> copia da biblioteca global -> rede com retry (3x, backoff equal-jitter) de `stream_url` fresco ->
-   `.part` -> validacao -> `rename` -> tags (best-effort) -> `TrackDownloaded`.
-   - progressive: streaming em chunks com checagem de Content-Length e limite de 1 GiB; queda no meio mantem o
-     `.part` e a proxima tentativa retoma com `Range` (so aceita `206` com `Content-Range` coerente).
-   - HLS: `hls::segment_urls` (melhor variante, recusa DRM/byte-range, init map) -> segmentos em paralelo
-     (`buffered(6)`, gravados em ordem), cada um com retry proprio.
+   - `resolve` → `plan_download` (numbering by position in the full playlist, folder, `ensure_within`).
+   - Stubs are hydrated through `fetch_tracks` (batches of 50, up to 4 in parallel, order preserved).
+   - `build_job` per track (`choose_transcoding`; DRM, previews and region locks become `unavailable`).
+   - Fully hydrated tracks become tasks immediately; stub batches are fetched in parallel (`buffer_unordered(4)`)
+     and each batch schedules its tracks as it arrives (parity with the v0.2 Scrapy spider). A failed batch only
+     marks the tracks in that batch; a track missing from the response becomes `not_returned`.
+   - `Scheduler::claim_unique_name`: file names are unique per folder (seeded from the archive); a template without
+     `{id}` that collides, or a name truncated at 200 characters, gets ` [id]` appended.
+   - Each job becomes a tokio task in a `JoinSet`, bounded by `Semaphore(workers)`; a panic in a task becomes a
+     track failure (via a `task::Id -> track_id` map); cancellation goes through a `CancellationToken` (the future
+     is dropped and the `PartFile` guard removes the `.part` file).
+   - `DownloadReport.stats` (`DownloadStats`): selected, scheduled, attempts, track retries, transport retries (a
+     per-job `task_local` counter in `http::count_transport_retries`, re-applied in every `JoinSet` task), library
+     copies, moves to `Removed/`, bytes/s.
+3. `AudioFetcher::download`, under a lock per final file (a global map of `Weak<Mutex>` keyed in lowercase): two
+   jobs in the same process never write the same `.part`. Order: file already in the folder (by archive, then by
+   name) → copy from the global library → network with retries (3x, equal-jitter backoff) on a fresh
+   `stream_url` → `.part` → validation → `rename` → tags (best effort) → `TrackDownloaded`.
+   - Progressive: chunked streaming with a Content-Length check and a 1 GiB cap; a mid-file drop keeps the `.part`
+     and the next attempt resumes with `Range` (only a `206` with a consistent `Content-Range` is accepted).
+   - HLS: `hls::segment_urls` (best variant, refuses DRM and byte ranges, init map) → parallel segments
+     (`buffered(6)`, written in order), each with its own retry.
 
-## Mapa de chamadas HTTP (um `reqwest::Client` compartilhado)
-| Chamador | Endpoint | Retry | Auth |
+## HTTP call map (one shared `reqwest::Client`)
+| Caller | Endpoint | Retry | Auth |
 |---|---|---|---|
-| `ClientIdProvider::discover` | `GET soundcloud.com` + bundles JS confiaveis | transporte (conexao/timeout/408/429/5xx, `Retry-After`) | — |
-| `ClientIdProvider::verify` | `GET api-v2/search/tracks?limit=1` | transporte | candidato |
-| `SoundCloudClient::expand_shortlink` | `GET on.soundcloud.com/*` sem redirect automatico, max 5 saltos | transporte | — |
-| `resolve` / `fetch_tracks` / `stream_url` | `api-v2/resolve`, `api-v2/tracks?ids=`, `<transcoding.url>` | transporte + 1 refresh em 401/403 | client_id |
-| `AudioFetcher` | CDN progressive, manifesto/segmentos HLS, artwork | transporte + retry da faixa (stream renovado) + retry por segmento | URL assinada |
+| `ClientIdProvider::discover` | `GET soundcloud.com` + trusted JS bundles | transport (connection/timeout/408/429/5xx, `Retry-After`) | — |
+| `ClientIdProvider::verify` | `GET api-v2/search/tracks?limit=1` | transport | candidate |
+| `SoundCloudClient::expand_shortlink` | `GET on.soundcloud.com/*` without automatic redirects, max 5 hops | transport | — |
+| `resolve` / `fetch_tracks` / `stream_url` | `api-v2/resolve`, `api-v2/tracks?ids=`, `<transcoding.url>` | transport + 1 refresh on 401/403 | client_id |
+| `AudioFetcher` | progressive CDN, HLS manifest/segments, artwork | transport + track retry (fresh stream) + per-segment retry | signed URL |
 
-Redirects do cliente principal so sao seguidos para hosts da allowlist (`redirect::Policy::custom`).
-`SoundCloudClient` limita a 8 as requisicoes simultaneas a API (`Semaphore`, equivalente ao `CONCURRENT_REQUESTS`
-do Scrapy); o permit cobre requisicao + corpo e e liberado antes de um refresh de client_id.
+The main client only follows redirects to allowlisted hosts (`redirect::Policy::custom`). `SoundCloudClient` caps
+concurrent API requests at 8 (`Semaphore`, the equivalent of Scrapy's `CONCURRENT_REQUESTS`); the permit covers the
+request and its body and is released before a client_id refresh.
 
-## Concorrencia
-- `ClientIdProvider`: `tokio::sync::Mutex` (single-flight na descoberta/renovacao).
-- Faixas: tarefas tokio (paralelismo real entre nucleos); CPU sincrona (lofty) em `spawn_blocking`.
-- App: cada job e uma tarefa em `tauri::async_runtime`; limite de 3 ativos, 50 retidos, 5000 eventos por job.
+## Concurrency
+- `ClientIdProvider`: `tokio::sync::Mutex` (single flight for discovery and renewal).
+- Tracks: tokio tasks (true multi-core parallelism); synchronous CPU work (lofty) runs in `spawn_blocking`.
+- App: each job is a task on `tauri::async_runtime`; at most 3 active, 50 retained and 5,000 events per job.
 
-## Observabilidade
-- Todo `Event` e logado via `tracing` com `run_id` e `event` (nomes estaveis: `download_planned`,
+## Observability
+- Every `Event` is logged through `tracing` with `run_id` and `event` (stable names: `download_planned`,
   `track_downloaded`, `track_reused`, `track_copied`, `track_moved`, `playlist_file_written`, `download_retry`,
-  `track_unavailable`, `track_failed`, `download_finished`, `download_cancelled`, `watch_*`); para a UI vai o
-  `Event` serializado (tag `event` em snake_case), fixado em `contracts/log-events.json` e entregue ao sink do adaptador. No app, `run_id` = id do job.
-- App: log JSON diario em `%LOCALAPPDATA%\Perseus\data\logs` (7 arquivos), filtro via `PERSEUS_LOG`.
-- CLI: stderr texto/JSON, `--log-file` JSON, `--report-json` (`DownloadReport::to_json` com `summary`).
+  `track_unavailable`, `track_failed`, `download_finished`, `download_cancelled`, `watch_*`); the UI receives the
+  serialized `Event` (tagged `event`, snake_case), pinned in `contracts/log-events.json` and delivered to the
+  adapter sink. In the app, `run_id` is the job id.
+- App: a daily JSON log in `%LOCALAPPDATA%\Perseus\data\logs` (7 files kept), filtered with `PERSEUS_LOG`.
+- CLI: text/JSON on stderr, JSON with `--log-file`, `--report-json` (`DownloadReport::to_json` with a `summary`).
 
-## App desktop (src-tauri)
-- IPC: `get_config`, `inspect`, `search`, `list_jobs`, `create_job`, `cancel_job`, `job_events` (replay apos
-  recarga), `open_folder` (so a pasta conhecida do job), `pick_output_dir(title, initial)` (dialogo nativo no Rust).
-- Eventos: canal `perseus://job` com `{job_id, id, event: log|track|state|watch|end, data}`; `id` sequencial por
-  job, gerado sob o mesmo lock da mudanca de estado. O front deduplica por id e nao aplica `state` antigo.
-- `Job` recebe um `EventEmitter` (closure) em vez do `AppHandle`: testavel sem runtime do Tauri.
-- Capabilities minimas (`core:event:allow-listen/unlisten`); plugins usados so do lado Rust.
-- CSP em `tauri.conf.json` (imagens so de `*.sndcdn.com`, `connect-src ipc:`), `freezePrototype`.
-- Single-instance: segunda execucao foca a janela existente. Fechar a janela cancela todos os jobs.
-- `JobIn::validated` exige pasta de destino absoluta (o diretorio de trabalho do app e a pasta de instalacao).
+## Desktop app (src-tauri)
+- IPC: `get_config`, `inspect`, `search`, `list_jobs`, `create_job`, `cancel_job`, `job_events` (replay after a
+  reload), `open_folder` (only the job's known folder), `pick_output_dir(title, initial)` (native dialog in Rust).
+- Events: the `perseus://job` channel carries `{job_id, id, event: log|track|state|watch|end, data}`; `id` is
+  sequential per job and generated under the same lock as the state change. The frontend deduplicates by id and
+  never applies a stale `state`.
+- `Job` receives an `EventEmitter` (closure) instead of the `AppHandle`, so it is testable without the Tauri
+  runtime.
+- Minimal capabilities (`core:event:allow-listen/unlisten`); plugins are only used from the Rust side.
+- CSP in `tauri.conf.json` (images only from `*.sndcdn.com`, `connect-src ipc:`), `freezePrototype`.
+- Single instance: a second launch focuses the existing window. Closing the window cancels every job.
+- `JobIn::validated` requires an absolute destination folder (the app's working directory is its install folder).
 
-## Versao online (Vercel)
-- Rotas `GET /api/config|inspect|search` e `POST /api/plan|stream`; `vercel.json` reescreve `/api/<rota>` para a funcao
-  unica `api/perseus.rs` com `?route=` (o router aceita tanto o caminho original quanto o reescrito).
-- `plan` usa `perseus_core::features::download::plan_remote` (mesmas regras do `plan_download`, sem disco);
-  `stream` so aceita URLs de transcoding (`/media/soundcloud:tracks:<id>/<uuid>/stream/(progressive|hls)`) e devolve
-  a URL assinada ou as partes do HLS.
-- Navegador (`web/src/lib/web`): `backend.ts` implementa os comandos/eventos do IPC; `engine.ts` baixa do CDN com
-  `workers` (max 6), retry, validacao, tags (`tags/`), `.m3u8` e destino (`sink.ts`: pasta ou .zip).
-  `pacer.ts`: um ritmo por aba para `plan`/`stream` (intervalo aleatorio 400-900 ms), abaixo dos 150/min por IP da
-  funcao e do Firewall; cabe no plano Hobby (ver [versao web na Vercel](../decisions/versao-web-vercel.md)).
-- `lib/backend.ts` escolhe Tauri ou navegador pelo modo do build; `lib/platform.ts` expõe `IS_WEB`.
-- Dev: `cargo run -p perseus-vercel` (porta 3000) + `npm --prefix web run dev:web` (5173, proxy `/api`).
+## Online version (Vercel)
+- Routes `GET /api/config|inspect|search` and `POST /api/plan|stream`; `vercel.json` rewrites `/api/<route>` to the
+  single `api/perseus.rs` function with `?route=` (the router accepts both the original and the rewritten path).
+- `plan` uses `perseus_core::features::download::plan_remote` (the same rules as `plan_download`, without disk
+  access); `stream` only accepts transcoding URLs
+  (`/media/soundcloud:tracks:<id>/<uuid>/stream/(progressive|hls)`) and returns the signed URL or the HLS parts.
+- Browser (`web/src/lib/web`): `backend.ts` implements the IPC commands and events; `engine.ts` downloads from the
+  CDN with `workers` (max 6), retries, validation, tags (`tags/`), `.m3u8` and the destination (`sink.ts`: folder or
+  `.zip`). `pacer.ts` keeps one pace per tab for `plan`/`stream` (a random 400–900 ms gap), below the 150/min per
+  IP enforced by the function and the Firewall, which fits the Hobby plan (see
+  [web version on Vercel](../decisions/web-version-on-vercel.md)).
+- `lib/backend.ts` picks Tauri or the browser based on the build mode; `lib/platform.ts` exposes `IS_WEB`.
+- Dev: `cargo run -p perseus-vercel` (port 3000) + `npm --prefix web run dev:web` (5173, proxies `/api`).
 
-## Internacionalizacao (web/src/i18n)
-- 11 locales (en, es, zh-CN, hi, fr, pt-BR, pt-PT, ar, bn, ru, id); pt-BR e o dicionario-fonte e define `MessageKey`;
-  os demais sao `Record<MessageKey, Message>` (chave faltando quebra o `tsc`). Plurais por `Intl.PluralRules`.
-- Runtime proprio, sem dependencia: `I18nProvider` (detecta `navigator.languages`, persiste em
-  `perseus.locale.v1`, aplica `lang`/`dir` no `<html>`), `useI18n`, numeros/horas/unidades via `Intl`.
-- Seletor na barra lateral mostra a sigla (EN, PT-BR...); o nome nativo fica em `aria-label`/`title`.
-- O backend continua em pt-BR ASCII nos logs, mas manda dados estaveis para a UI traduzir: `CommandError.code`,
-  `JobOut.error_code`, `reason_code` em faixas e eventos `track`, e `detail` (o `Event` serializado) nos eventos
-  `log`/`watch`. `i18n/describe.ts` monta as frases; sem traducao, cai no texto original.
-- RTL (arabe): propriedades logicas no CSS, marcador da tarefa ativa e lamina de progresso espelhados.
+## Internationalization (web/src/i18n)
+- 11 locales (en, es, zh-CN, hi, fr, pt-BR, pt-PT, ar, bn, ru, id); pt-BR is the source dictionary and defines
+  `MessageKey`; the others are `Record<MessageKey, Message>` (a missing key breaks `tsc`). Plurals use
+  `Intl.PluralRules`.
+- A dependency-free runtime: `I18nProvider` (detects `navigator.languages`, persists to `perseus.locale.v1`, sets
+  `lang`/`dir` on `<html>`), `useI18n`, and numbers/times/units through `Intl`.
+- The sidebar selector shows the code (EN, PT-BR...); the native name goes in `aria-label`/`title`.
+- The backend keeps its logs in ASCII pt-BR but sends stable data for the UI to translate: `CommandError.code`,
+  `JobOut.error_code`, `reason_code` on tracks and `track` events, and `detail` (the serialized `Event`) on
+  `log`/`watch` events. `i18n/describe.ts` builds the sentences and falls back to the original text when there is
+  no translation.
+- RTL (Arabic): logical CSS properties, with the active-job marker and the progress bar mirrored.
 
-## Testes
-Matriz completa em [estrategia de testes](../decisions/estrategia-de-testes.md).
-- `crates/perseus-core/src/test_support.rs` (`cfg(test)`): helpers wiremock, `RawServer` (HTTP em TCP cru que corta
-  o corpo no meio, honra `Range` e mede concorrencia) e o alocador contador `LIVE_BYTES` (`#[global_allocator]`).
-- `features/download/resilience_tests.rs`: rede, concorrencia, persistencia e desempenho (`perf_*` ignorados).
-- `src/property_tests.rs`: proptest; o mesmo conjunto vira fuzz com `PROPTEST_CASES=20000`.
-- `contracts/` na raiz: `log-events.json` (gerado pelo Rust, lido pelo Vitest) e `job-in.json` (lido pelos dois).
-- `crates/perseus-cli/tests/cli.rs` (binario real, golden em `tests/golden/`); `src-tauri/tests/config.rs`.
-- `web/e2e/`: `perseus.spec.ts`, `interaction.spec.ts`, `visual.spec.ts` (baselines em `visual.spec.ts-snapshots/`).
-- `web/e2e-web/` (`playwright.web.config.ts`): versao online em Chromium desktop, Pixel 7 e iPhone 14 (WebKit), com
-  `/api` e CDN simulados; celulares de 320 a 414 px sem rolagem horizontal e alvos de toque >= 44 px.
-- `scripts/`: `test-all.ps1` (orquestrador), `smoke.ps1` (real), `scan-secrets.mjs`, `collect-release.ps1`.
-- CI: `ci.yml` (cada push; E2E em matriz chromium/webkit/firefox) e `quality.yml` (semanal: fuzz, desempenho, mutacao).
+## Tests
+Full matrix in the [testing strategy](../decisions/testing-strategy.md).
+- `crates/perseus-core/src/test_support.rs` (`cfg(test)`): wiremock helpers, `RawServer` (raw-TCP HTTP that cuts the
+  body mid-stream, honors `Range` and measures concurrency) and the `LIVE_BYTES` counting allocator
+  (`#[global_allocator]`).
+- `features/download/resilience_tests.rs`: network, concurrency, persistence and performance (`perf_*` ignored by
+  default).
+- `src/property_tests.rs`: proptest; the same suite becomes fuzzing with `PROPTEST_CASES=20000`.
+- `contracts/` at the root: `log-events.json` (generated by Rust, read by Vitest) and `job-in.json` (read by both).
+- `crates/perseus-cli/tests/cli.rs` (the real binary, golden files in `tests/golden/`); `src-tauri/tests/config.rs`.
+- `web/e2e/`: `perseus.spec.ts`, `interaction.spec.ts`, `visual.spec.ts` (baselines in `visual.spec.ts-snapshots/`).
+- `web/e2e-web/` (`playwright.web.config.ts`): the online version on desktop Chromium, Pixel 7 and iPhone 14
+  (WebKit), with mocked `/api` and CDN; phones from 320 to 414 px with no horizontal scroll and touch targets of at
+  least 44 px.
+- `scripts/`: `test-all.ps1` (orchestrator), `smoke.ps1` (real network), `scan-secrets.mjs`, `collect-release.ps1`.
+- CI: `ci.yml` (every push; E2E across a chromium/webkit/firefox matrix) and `quality.yml` (weekly: fuzzing,
+  performance, mutation).

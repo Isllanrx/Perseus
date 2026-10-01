@@ -1,34 +1,35 @@
 ---
 updated: 2026-09-30
-escopo: v1.0 (Rust + Tauri), apos catalogo completo e suite de testes
+scope: v1.0 (Rust + Tauri), after the full catalog and the test suite
 ---
 
-# Revisao de arquitetura
+# Architecture review
 
-## O que esta solido
-- **Fatias verticais** (`inspect`, `download`, `watch`) sobre um kernel `shared`; CLI e app sao adaptadores finos
-  sobre `run_download` e eventos tipados. Nenhuma regra de negocio nos adaptadores.
-- **Fronteiras de confianca explicitas**: URL por allowlist com parse manual, bytes so de hosts permitidos
-  (inclusive redirects), `ensure_within` em todo caminho, nomes saneados (Windows, C0/C1, bidi), archive
-  validado na carga. Testado por propriedades e entradas hostis.
-- **Idempotencia em camadas**: archive por pasta (id -> arquivo), fallback por nome, biblioteca global; nomes
-  unicos por pasta; escrita atomica.
-- **Resiliencia medida**: retry de transporte e de faixa separados e contados, retomada por `Range`,
-  cancelamento imediato, isolamento de falha por lote e por tarefa (panico vira falha da faixa).
-- **Contrato Rust <-> front verificado** por arquivos compartilhados; front sem acesso a rede (CSP `connect-src`
-  so IPC) e com IPC minimo.
+## What is solid
+- **Vertical slices** (`inspect`, `download`, `watch`) over a `shared` kernel; the CLI and the app are thin adapters
+  over `run_download` and typed events. No business rules in the adapters.
+- **Explicit trust boundaries**: URLs checked against an allowlist with manual parsing, bytes only from allowed hosts
+  (redirects included), `ensure_within` on every path, sanitized names (Windows, C0/C1, bidi), archives validated
+  on load. Covered by property tests and hostile inputs.
+- **Layered idempotency**: a per-folder archive (id → file), a name-based fallback, a global library; unique names
+  per folder; atomic writes.
+- **Measured resilience**: transport and track retries kept separate and counted, `Range` resume, immediate
+  cancellation, failure isolation per batch and per task (a panic becomes a track failure).
+- **A verified Rust ↔ frontend contract** through shared files; the frontend has no network access (CSP
+  `connect-src` limited to IPC) and minimal IPC.
 
-## Riscos e dividas
-| Risco | Impacto | Mitigacao atual | Proximo passo |
+## Risks and debt
+| Risk | Impact | Current mitigation | Next step |
 |---|---|---|---|
-| API nao oficial do SoundCloud (client_id do bundle, endpoints `api-v2`) | Alto | descoberta + renovacao unica, teste ao vivo e smoke | backlog: monitorar quebra no CI semanal com teste ao vivo |
-| Lock de arquivo so dentro do processo | Medio | serializa jobs do app | backlog 27: lock no `.part` via `fs4` |
-| Core testado so no Windows | Medio | E2E do front em 3 motores | backlog 28-29 |
-| Estado do app em memoria (jobs somem ao fechar) | Baixo | archive/biblioteca persistem o essencial | backlog 12 |
-| `library.json` cresce sem limite | Baixo | descarta entradas de arquivos sumidos ao salvar | medir com bibliotecas grandes antes de otimizar |
-| Instalador sem assinatura | Medio (SmartScreen) | SHA256SUMS + proveniencia | certificado Authenticode |
+| Unofficial SoundCloud API (client_id from the bundle, `api-v2` endpoints) | High | discovery + a single renewal, live tests and smoke tests | backlog: detect breakage in the weekly CI with a live test |
+| File lock only within a process | Medium | app jobs are serialized | backlog 27: lock the `.part` through `fs4` |
+| Core tested on Windows only | Medium | frontend E2E on 3 engines | backlog 28–29 |
+| App state in memory (jobs vanish on close) | Low | archive/library persist what matters | backlog 12 |
+| `library.json` grows without bound | Low | entries for missing files are dropped on save | measure with large libraries before optimizing |
+| Unsigned installer | Medium (SmartScreen) | SHA256SUMS + provenance | Authenticode certificate |
 
-## Decisoes relacionadas
-[Fatias verticais](../decisions/arquitetura-fatias-verticais.md), [sem DRM](../decisions/sem-contorno-de-drm.md),
-[Rust + Tauri](../decisions/reescrita-rust-tauri.md), [catalogo, biblioteca e sync](../decisions/catalogo-biblioteca-sync.md),
-[estrategia de testes](../decisions/estrategia-de-testes.md).
+## Related decisions
+[Vertical slices](../decisions/vertical-slice-architecture.md), [no DRM](../decisions/no-drm-circumvention.md),
+[Rust + Tauri](../decisions/rust-tauri-rewrite.md),
+[catalog, library and sync](../decisions/profile-catalog-library-sync.md),
+[testing strategy](../decisions/testing-strategy.md).

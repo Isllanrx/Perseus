@@ -1,66 +1,73 @@
-# Padroes e armadilhas
+# Coding standards and pitfalls
 
-## Comentarios
-Decisao: [codigo sem comentarios](../decisions/codigo-sem-comentarios.md).
-- Codigo sem comentarios; so diretiva de ferramenta de uma linha. Explicacao em `.md`. `cargo xtask comments` no CI
-  (`.github/workflows/comments.yml`) e no `scripts/test-all.ps1`.
-- Armadilha: `///` em struct/enum com derive do `clap` e o texto do `--help`. Use `#[arg(help = "...")]`,
-  `#[value(help = "...")]`, `#[command(about = "...")]`; o xtask recusa doc comment nesses arquivos.
-- Depois de `cargo xtask comments --strip`, rodar `cargo fmt --all` (enums/listas podem voltar a caber numa linha).
-- `catch {}` vazio = melhor esforco intencional (ESLint `no-empty` com `allowEmptyCatch`); outro bloco vazio e erro.
+## Comments
+Decision: [no comments in code](../decisions/no-comments-in-code.md).
+- Code has no comments; only single-line tool directives. Explanations go in Markdown. `cargo xtask comments` runs in
+  CI (`.github/workflows/comments.yml`) and in `scripts/test-all.ps1`.
+- Pitfall: `///` on a struct/enum deriving from `clap` is the `--help` text. Use `#[arg(help = "...")]`,
+  `#[value(help = "...")]` or `#[command(about = "...")]`; the xtask refuses doc comments in those files.
+- After `cargo xtask comments --strip`, run `cargo fmt --all` (enums and lists may fit on one line again).
+- An empty `catch {}` means intentional best effort (ESLint `no-empty` with `allowEmptyCatch`); any other empty
+  block is an error.
 
 ## Rust
-- Lints do workspace: clippy `pedantic` (CI com `-D warnings`), `unwrap_used` avisa; `unsafe` proibido no core e
-  na CLI (`#![forbid(unsafe_code)]`). `expect` so com mensagem em invariantes (regex estaticas, testes).
-- Erros esperados sao variantes de `perseus_core::Error`; `is_retryable()` decide retry e `kind()` alimenta a UI e
-  os codigos de saida. `reqwest::Error` vira `Error::Transfer` sem a URL (pode conter client_id/assinatura).
-- Futuros enviados a outra thread (comandos Tauri, `JoinSet::spawn`) precisam ser `Send`: nao usar closures em
-  `stream::iter(..).map(..).buffered(..)` que emprestem variaveis do escopo — materializar os futuros num `Vec`
-  antes (ver `fetch_tracks`). `#[tokio::test]` e single-thread e nao pega esse erro; so o build do app pega.
-- Nada de I/O sincrono pesado no runtime: lofty (validacao/tags) e `read_dir` rodam em `spawn_blocking`.
-- No Windows o `rename` do `.part` falha com o handle aberto: fechar (`drop`) o arquivo antes de validar/renomear.
-- `directories::ProjectDirs` no Windows usa `%LOCALAPPDATA%\Perseus\{cache,data}`; logs ficam em `data\logs`.
-- O `tracing-appender` com `max_log_files` falha se a pasta nao existir: criar antes (primeira execucao).
-- lofty escreve ID3v2.3 com `WriteOptions::use_id3v23(true)` e avisa (via `log`) que troca UTF-8 por UTF-16:
-  silenciado com `lofty=error` no filtro.
-- `cargo build` puro do crate `perseus` gera um binario que carrega o `devUrl`; build de producao so via
-  `npm run build` / `npx tauri build` (ativa `custom-protocol`).
-- Construtores de teste (`SoundCloudClient::for_tests`, `HostPolicy::Loopback`) so existem em `cfg(test)` ou com a
-  feature `test-util` (dev-dependency do app). Nunca habilitar em release.
-- O `link.exe` em pt-BR imprime "Criando biblioteca..." em todo binario: lint `linker_messages` desligado.
-- `Path::new(".mp3").extension()` e `None` (para o Rust e um arquivo oculto sem extensao). Comparar extensoes com
-  `ext.eq_ignore_ascii_case(format.extension.trim_start_matches('.'))`. Esse erro deixou o archive inutil.
-- `tokio::task_local!` nao atravessa `JoinSet::spawn`: cada tarefa precisa ser envolvida de novo no escopo
+- Workspace lints: clippy `pedantic` (CI runs with `-D warnings`), `unwrap_used` warns; `unsafe` is forbidden in the
+  core and the CLI (`#![forbid(unsafe_code)]`). `expect` only with a message, for invariants (static regexes, tests).
+- Expected errors are variants of `perseus_core::Error`; `is_retryable()` decides retries and `kind()` feeds the UI
+  and the exit codes. `reqwest::Error` becomes `Error::Transfer` without the URL (it may contain the client_id or a
+  signature).
+- Futures sent to another thread (Tauri commands, `JoinSet::spawn`) must be `Send`: do not use closures in
+  `stream::iter(..).map(..).buffered(..)` that borrow from the enclosing scope — collect the futures into a `Vec`
+  first (see `fetch_tracks`). `#[tokio::test]` is single-threaded and does not catch this; only the app build does.
+- No heavy synchronous I/O on the runtime: lofty (validation/tags) and `read_dir` run in `spawn_blocking`.
+- On Windows, renaming the `.part` fails while its handle is open: close (`drop`) the file before validating or
+  renaming it.
+- `directories::ProjectDirs` on Windows uses `%LOCALAPPDATA%\Perseus\{cache,data}`; logs live in `data\logs`.
+- `tracing-appender` with `max_log_files` fails if the folder does not exist: create it first (first launch).
+- lofty writes ID3v2.3 with `WriteOptions::use_id3v23(true)` and warns (through `log`) that it swaps UTF-8 for
+  UTF-16: silenced with `lofty=error` in the filter.
+- A plain `cargo build` of the `perseus` crate produces a binary that loads `devUrl`; production builds only go
+  through `npm run build` / `npx tauri build` (which enables `custom-protocol`).
+- Test constructors (`SoundCloudClient::for_tests`, `HostPolicy::Loopback`) only exist under `cfg(test)` or the
+  `test-util` feature (a dev-dependency of the app). Never enable them in release builds.
+- The pt-BR `link.exe` prints "Criando biblioteca..." for every binary: the `linker_messages` lint is turned off.
+- `Path::new(".mp3").extension()` is `None` (to Rust it is a hidden file without an extension). Compare extensions
+  with `ext.eq_ignore_ascii_case(format.extension.trim_start_matches('.'))`. This bug made the archive useless.
+- `tokio::task_local!` does not cross `JoinSet::spawn`: each task has to be wrapped in the scope again
   (`count_transport_retries`).
-- `#![forbid(unsafe_code)]` nao aceita `allow` local; o crate usa `forbid` fora de testes e `deny` em testes, onde so o
-  alocador contador (vazamento de memoria) tem `allow`.
-- `--all-features` + PDB completo no Windows fez o `target/` chegar a 34 GB: perfil `dev` usa
-  `debug = "line-tables-only"` e dependencias sem simbolos. Para depurar variaveis: `CARGO_PROFILE_DEV_DEBUG=full`.
-- Testes com `wiremock`: o primeiro mock registrado que casa vence; respostas "primeiro falha, depois ok" usam
-  `up_to_n_times` montado antes do mock de sucesso. Lembrar que `run_download` resolve a URL de novo.
-- Arquivo final tem tag ID3 no inicio: comparar audio com o original exige remover o cabecalho (`audio_payload`).
+- `#![forbid(unsafe_code)]` does not accept a local `allow`; the crate uses `forbid` outside tests and `deny` in
+  tests, where only the counting allocator (memory-leak detection) has an `allow`.
+- `--all-features` plus full PDBs on Windows once pushed `target/` to 34 GB: the `dev` profile uses
+  `debug = "line-tables-only"` and dependencies without symbols. To inspect variables in a debugger:
+  `CARGO_PROFILE_DEV_DEBUG=full`.
+- `wiremock` tests: the first registered mock that matches wins; "fail first, then succeed" responses use
+  `up_to_n_times` mounted before the success mock. Remember that `run_download` resolves the URL again.
+- The final file has an ID3 tag at the start: comparing audio with the original requires stripping the header
+  (`audio_payload`).
 
-## Front-end
-- Contrato IPC em `src-tauri/src/dto.rs` espelhado em `web/src/types.ts` (snake_case); mudar os dois juntos. Os
-  testes de contrato (`contracts/`) quebram se um lado mudar sozinho.
-- Stryker usa o runner `command` (o runner do Vitest nao executava testes no sandbox com espaco no caminho e
-  reportava 14% falso). Testes que leem arquivos fora de `web/` nao entram no comando de mutacao.
-- Vitest: `new URL("../x", import.meta.url)` vira import de asset pelo Vite e e bloqueado fora da raiz; ler
-  arquivos compartilhados com `resolve(process.cwd(), "..", ...)`.
-- Erros do IPC chegam como `{kind, code, message}` (serializacao do `CommandError`); `api.ts` converte em `ApiError`.
-- `web/src/e2e/mockBackend.ts` so e importado em `vite --mode e2e`; a condicao `import.meta.env.MODE === "e2e"`
-  e constante no build de producao e o modulo e eliminado (conferir com `grep mockIPC web/dist`).
-- O `mockIPC` de eventos avisa "Couldn't find callback id" com o `StrictMode`; e artefato do mock, nao do app.
-- TypeScript fixado em **6.0** (TS 7 nao expoe a API JS do typescript-eslint); ESLint fixado em **9**
-  (jsx-a11y ainda sem ESLint 10). Nao usar `--legacy-peer-deps`.
-- CSP proibe `data:` para fontes/scripts: Vite com `assetsInlineLimit: 0`.
-- Nenhum texto de interface fixo em componente: chave em `i18n/messages/pt-BR.ts` + as 10 traducoes. Mensagens do
-  backend exibidas ao usuario precisam de codigo estavel (nao traduzir comparando strings em pt-BR).
-- Estado de erro/status guarda codigo + detalhe, nunca o texto pronto: o texto e montado no render para que a troca
-  de idioma atualize a tela inteira.
-- `getByText` do Playwright casa por substring: com o registro de atividade traduzido, usar `{ exact: true }`.
-- CSS: usar propriedades logicas (`inline-end`, `text-align: start`) por causa do arabe (RTL); `letter-spacing`
-  e zerado para ar/hi/bn/zh (quebra a ligacao das letras arabes).
-- Mensagens do backend ficam em ASCII pt-BR (logs e fallback); a UI traduz pelos codigos.
-- Working tree no Windows pode estar em CRLF (`.gitattributes` normaliza para LF no commit): scripts que
-  processam texto devem tolerar `\r\n`.
+## Frontend
+- The IPC contract in `src-tauri/src/dto.rs` is mirrored in `web/src/types.ts` (snake_case); change both together.
+  The contract tests (`contracts/`) break if only one side changes.
+- Stryker uses the `command` runner (the Vitest runner did not execute tests in a sandbox whose path contains a
+  space and reported a false 14%). Tests that read files outside `web/` are excluded from the mutation command.
+- Vitest: `new URL("../x", import.meta.url)` becomes a Vite asset import and is blocked outside the root; read
+  shared files with `resolve(process.cwd(), "..", ...)`.
+- IPC errors arrive as `{kind, code, message}` (the `CommandError` serialization); `api.ts` turns them into
+  `ApiError`.
+- `web/src/e2e/mockBackend.ts` is only imported under `vite --mode e2e`; the `import.meta.env.MODE === "e2e"`
+  condition is constant in the production build and the module is dropped (check with `grep mockIPC web/dist`).
+- The events `mockIPC` warns "Couldn't find callback id" under `StrictMode`; it is an artifact of the mock, not the
+  app.
+- TypeScript is pinned to **6.0** (TS 7 does not expose the JS API typescript-eslint needs); ESLint is pinned to
+  **9** (jsx-a11y does not support ESLint 10 yet). Do not use `--legacy-peer-deps`.
+- The CSP forbids `data:` for fonts and scripts: Vite runs with `assetsInlineLimit: 0`.
+- No hard-coded interface text in components: a key in `i18n/messages/pt-BR.ts` plus the 10 translations. Backend
+  messages shown to the user need a stable code (never translate by comparing pt-BR strings).
+- Error/status state stores a code plus details, never the rendered text: the text is built at render time so a
+  language switch updates the whole screen.
+- Playwright's `getByText` matches substrings: with the activity log translated, use `{ exact: true }`.
+- CSS: use logical properties (`inline-end`, `text-align: start`) because of Arabic (RTL); `letter-spacing` is reset
+  for ar/hi/bn/zh (it breaks Arabic letter joining).
+- Backend messages stay in ASCII pt-BR (logs and fallback); the UI translates them by code.
+- The Windows working tree may be in CRLF (`.gitattributes` normalizes to LF on commit): scripts that process text
+  must tolerate `\r\n`.
