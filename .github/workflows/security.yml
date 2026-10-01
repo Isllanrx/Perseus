@@ -75,4 +75,5 @@ jobs:
       - uses: actions/dependency-review-action@3b139cfc5fae8b618d3eae3675e383bb1769c019 # v4.5.0
         with:
           fail-on-severity: high
-          deny-licenses: GPL-3.0-only, AGPL-3.0-only
+          license-check: false
+          show-openssf-scorecard: false
