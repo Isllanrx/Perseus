@@ -1,0 +1,98 @@
+Baixa faixas e playlists publicas do SoundCloud sem conta de usuario.
+
+Usage: perseus-cli.exe [OPTIONS] [URL]
+
+Arguments:
+  [URL]
+          URL de faixa, playlist, album, perfil (e abas: tracks, popular-tracks, reposts, likes, albums, sets), relacionadas (.../recommended) ou shortlink on.soundcloud.com
+
+Options:
+  -s, --search <SEARCH>
+          Buscar no SoundCloud em vez de informar URL (escolhe o resultado; sem terminal, o primeiro)
+
+      --quality <QUALITY>
+          Qualidade: compativel (MP3) ou melhor bitrate disponivel
+
+          Possible values:
+          - compatible: MP3 (toca em qualquer player)
+          - best:       Maior bitrate aberto (ex.: AAC 160 kbps)
+          
+          [default: compatible]
+
+      --name-template <NAME_TEMPLATE>
+          Template do nome do arquivo: {number} {artist} {title} {album} {year} {id} {genre} {uploader}
+
+      --min-duration <MIN_DURATION>
+          Pular faixas mais curtas que N segundos
+
+      --max-duration <MAX_DURATION>
+          Pular faixas mais longas que N segundos (ex.: 900 pula mixes)
+
+      --no-m3u
+          Nao gerar o arquivo .m3u8 da playlist
+
+      --original-artwork
+          Capa na resolucao original enviada pelo artista
+
+      --sync
+          Mover para Removed/ as faixas que sairam da playlist (nunca apaga)
+
+      --no-library
+          Nao reaproveitar faixas ja baixadas em outras pastas (biblioteca local)
+
+      --max-kbps <MAX_KBPS>
+          Limite de banda em kbit/s
+
+  -o, --output <OUTPUT>
+          Diretorio de destino (padrao: pasta de musicas do usuario/Perseus)
+
+  -w, --watch
+          Monitorar a playlist e baixar faixas novas
+
+  -i, --interval <INTERVAL>
+          Intervalo de verificacao em segundos (--watch)
+          
+          [default: 60]
+
+  -l, --limit <LIMIT>
+          Baixar apenas as N primeiras faixas
+
+      --workers <WORKERS>
+          Downloads simultaneos
+          
+          [default: 4]
+
+      --info
+          Apenas exibir metadados, sem baixar
+
+      --client-id <CLIENT_ID>
+          client_id manual (padrao: descoberta automatica)
+          
+          [env: SOUNDCLOUD_CLIENT_ID]
+
+  -p, --playlist
+          Se a URL tiver ?in=, baixar a playlist inteira
+
+      --track-only
+          Se a URL tiver ?in=, baixar so a faixa
+
+  -v, --verbose
+          Logs em nivel DEBUG (inclui progresso por faixa)
+
+      --log-format <LOG_FORMAT>
+          Formato dos logs no terminal
+          
+          [default: text]
+          [possible values: text, json]
+
+      --log-file <LOG_FILE>
+          Grava logs JSON neste arquivo
+
+      --report-json <REPORT_JSON>
+          Grava o relatorio final do download em JSON
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
