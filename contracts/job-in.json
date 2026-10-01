@@ -1,0 +1,17 @@
+{
+  "url": "https://soundcloud.com/perseus/sets/argonautas",
+  "mode": "playlist",
+  "output_dir": null,
+  "workers": 4,
+  "limit": 25,
+  "interval": 60,
+  "quality": "best",
+  "name_template": "{artist} - {title} [{id}]",
+  "min_duration_s": 30,
+  "max_duration_s": 900,
+  "max_kbps": 512,
+  "write_playlist_file": true,
+  "original_artwork": true,
+  "sync_removed": true,
+  "use_library": true
+}

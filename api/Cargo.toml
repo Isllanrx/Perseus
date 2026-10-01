@@ -1,0 +1,25 @@
+[package]
+name = "perseus-vercel"
+description = "Adaptador da versao web do Perseus para o runtime Rust da Vercel."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "perseus-api"
+path = "perseus.rs"
+
+[dependencies]
+perseus-core.workspace = true
+perseus-web.workspace = true
+vercel_runtime.workspace = true
+tower.workspace = true
+tokio.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

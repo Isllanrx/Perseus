@@ -1,0 +1,263 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  RUSTFLAGS: -D warnings
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-quality:
+    name: Web — tipos, lint, testes e build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: TypeScript
+        run: npm run typecheck
+      - name: ESLint
+        run: npm run lint
+      - name: Vitest com cobertura
+        run: npm run test:coverage
+      - name: Build da versao web (Vercel)
+        run: npm run build:web
+      - name: Build de producao
+        run: npm run build
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: web-dist
+          path: web/dist
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        if: always()
+        with:
+          name: coverage-web
+          path: web/coverage
+          if-no-files-found: ignore
+          retention-days: 14
+
+  rust:
+    name: Rust — formato, clippy e testes
+    needs: [web-quality]
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Toolchain estavel com rustfmt e clippy
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt,clippy
+          rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          name: web-dist
+          path: web/dist
+      - name: rustfmt
+        run: cargo fmt --all --check
+      - name: clippy (pedantic, warnings como erro)
+        run: cargo clippy --workspace --all-targets --locked
+      - name: Testes (core, CLI e app)
+        run: cargo test --workspace --locked
+
+  e2e:
+    name: E2E — Playwright ${{ matrix.project }} (front real, IPC simulado)
+    needs: [web-quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, webkit, firefox]
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Navegador do Playwright
+        run: npx playwright install --with-deps ${{ matrix.project }}
+      - name: Playwright
+        env:
+          CI: "true"
+        run: npx playwright test --project=${{ matrix.project }}
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        if: failure()
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: |
+            web/playwright-report
+            web/test-results
+          retention-days: 14
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        if: always()
+        with:
+          name: responsive-screenshots-${{ matrix.project }}
+          path: web/test-results/responsive
+          if-no-files-found: ignore
+          retention-days: 14
+
+  e2e-web:
+    name: E2E web — ${{ matrix.project }} (versao online, API simulada)
+    needs: [web-quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: web-chromium
+            browser: chromium
+          - project: web-android
+            browser: chromium
+          - project: web-iphone
+            browser: webkit
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Navegador do Playwright
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Playwright (versao web)
+        env:
+          CI: "true"
+        run: npx playwright test -c playwright.web.config.ts --project=${{ matrix.project }}
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        if: always()
+        with:
+          name: e2e-web-${{ matrix.project }}
+          path: |
+            web/playwright-report-web
+            web/test-results/web
+            web/test-results/responsive-web
+          if-no-files-found: ignore
+          retention-days: 14
+
+  vercel-function:
+    name: Funcao da Vercel — build Linux e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Build da funcao
+        run: cargo build --bin perseus-api --release --locked
+      - name: Testes do backend web
+        run: cargo test -p perseus-web --locked
+
+  audit:
+    name: Auditoria de dependencias
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Segredos nos arquivos versionados
+        run: node scripts/scan-secrets.mjs
+      - name: cargo-deny (vulnerabilidades, licencas e origens)
+        run: |
+          cargo install cargo-deny --locked
+          cargo deny --all-features check advisories licenses sources bans
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: 24
+      - name: npm audit (severidade alta ou maior)
+        working-directory: web
+        run: npm audit --audit-level=high
+      - name: npm audit do CLI do Tauri
+        run: npm audit --audit-level=high
+
+  workflow-lint:
+    name: Lint e auditoria dos workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: actionlint
+        run: docker run --rm --volume "${PWD}:/repo" --workdir /repo rhysd/actionlint:latest -color
+      - name: zizmor
+        run: docker run --rm --volume "${PWD}:/repo" --workdir /repo ghcr.io/zizmorcore/zizmor:latest --persona=regular --format=github .github/workflows
+
+  build-windows:
+    name: Build do instalador Windows
+    needs: [rust, e2e]
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+      - run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Dependencias (CLI do Tauri e front)
+        run: |
+          npm ci
+          npm ci --prefix web
+      - name: Instalador NSIS e CLI
+        run: |
+          npm run build
+          cargo build --release --locked -p perseus-cli
+      - name: Checksums
+        shell: pwsh
+        run: ./scripts/collect-release.ps1 -OutDir dist
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: perseus-windows-x64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14

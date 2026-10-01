@@ -1,0 +1,116 @@
+[
+  {
+    "album": "Argonautas",
+    "artist": "Perseus",
+    "event": "planned",
+    "selected": 3,
+    "target_dir": "C:/Musica/Perseus - Argonautas",
+    "total": 12
+  },
+  {
+    "event": "resolve_failed",
+    "reason": "Recurso nao encontrado",
+    "url": "https://soundcloud.com/a/b"
+  },
+  {
+    "attempts": 2,
+    "bytes": 4000000,
+    "elapsed_s": 1.5,
+    "event": "track_downloaded",
+    "file": "01. Perseus - Um.mp3",
+    "protocol": "hls",
+    "track_id": 1
+  },
+  {
+    "event": "track_reused",
+    "file": "02. Perseus - Dois.mp3",
+    "track_id": 2
+  },
+  {
+    "event": "track_copied",
+    "file": "03. Perseus - Tres.mp3",
+    "source": "C:/Outra/Tres.mp3",
+    "track_id": 3
+  },
+  {
+    "event": "track_moved",
+    "file": "04. Perseus - Quatro.mp3",
+    "track_id": 4
+  },
+  {
+    "event": "playlist_file_written",
+    "file": "Argonautas.m3u8",
+    "tracks": 12
+  },
+  {
+    "attempt": 1,
+    "delay_s": 1.2,
+    "event": "track_retry",
+    "max": 3,
+    "reason": "timeout",
+    "title": "Cinco",
+    "track_id": 5
+  },
+  {
+    "event": "track_unavailable",
+    "reason": "protegida por DRM (somente streams criptografados)",
+    "reason_code": "drm",
+    "track_id": 6
+  },
+  {
+    "event": "track_failed",
+    "reason": "falha de rede",
+    "track_id": 7
+  },
+  {
+    "bytes": 40000000,
+    "downloaded": 9,
+    "elapsed_s": 12.3,
+    "event": "finished",
+    "failed": 1,
+    "reused": 1,
+    "unavailable": 1
+  },
+  {
+    "event": "cancelled"
+  },
+  {
+    "artist": "Perseus",
+    "event": "watch_started",
+    "interval": 60,
+    "title": "Argonautas",
+    "tracks": 12
+  },
+  {
+    "count": 2,
+    "event": "watch_new_tracks"
+  },
+  {
+    "check": 3,
+    "event": "watch_idle"
+  },
+  {
+    "check": 4,
+    "errors": 2,
+    "event": "watch_check_failed",
+    "reason": "HTTP 503"
+  },
+  {
+    "event": "watch_sync_failed",
+    "reason": "sem espaco"
+  },
+  {
+    "attempts": 3,
+    "event": "watch_track_abandoned",
+    "reason": "timeout",
+    "track_id": 8
+  },
+  {
+    "event": "watch_stopped"
+  },
+  {
+    "code": "insufficient_space",
+    "event": "job_failed",
+    "reason": "Espaco insuficiente"
+  }
+]

@@ -1,0 +1,155 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag existente a publicar (ex.: v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Versao a publicar
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      ref: ${{ steps.resolve.outputs.ref }}
+      create_tag: ${{ steps.resolve.outputs.create_tag }}
+      publish: ${{ steps.resolve.outputs.publish }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          SHA: ${{ github.sha }}
+        run: |
+          create_tag=false
+          publish=true
+          if [[ "${EVENT}" == "workflow_dispatch" ]]; then
+            tag="${INPUT_TAG}"
+            ref="${INPUT_TAG}"
+          elif [[ "${REF_TYPE}" == "tag" ]]; then
+            tag="${REF_NAME}"
+            ref="${REF_NAME}"
+          else
+            version="$(sed -n '/^\[workspace\.package\]/,/^\[/{s/^version = "\(.*\)"$/\1/p}' Cargo.toml)"
+            tag="v${version}"
+            ref="${SHA}"
+            create_tag=true
+            if gh api "repos/${GH_REPO}/git/ref/tags/${tag}" --silent 2>/dev/null; then
+              echo "::notice::${tag} ja existe; atualize a versao no Cargo.toml para publicar uma nova release."
+              publish=false
+            fi
+          fi
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
+            echo "Tag invalida: ${tag}" >&2
+            exit 1
+          fi
+          {
+            echo "tag=${tag}"
+            echo "ref=${ref}"
+            echo "create_tag=${create_tag}"
+            echo "publish=${publish}"
+          } >> "${GITHUB_OUTPUT}"
+
+  build:
+    name: Build do instalador Windows
+    needs: [version]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          ref: ${{ needs.version.outputs.ref }}
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: Dependencias (CLI do Tauri e front)
+        run: |
+          npm ci
+          npm ci --prefix web
+      - name: Instalador NSIS e CLI
+        run: |
+          npm run build
+          cargo build --release --locked -p perseus-cli
+      - name: Artefatos e checksums
+        shell: pwsh
+        run: ./scripts/collect-release.ps1 -OutDir dist
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: perseus-release
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Proveniencia e pre-release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          name: perseus-release
+          path: dist
+      - name: Conferir checksums
+        working-directory: dist
+        run: sha256sum --check SHA256SUMS
+      - uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
+        with:
+          subject-path: |
+            dist/*.exe
+            dist/*.zip
+      - name: Criar pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.version.outputs.tag }}
+          REF: ${{ needs.version.outputs.ref }}
+          CREATE_TAG: ${{ needs.version.outputs.create_tag }}
+        run: |
+          if [[ "${CREATE_TAG}" == "true" ]]; then
+            tag_args=(--target "${REF}")
+          else
+            tag_args=(--verify-tag)
+          fi
+          gh release create "${TAG}" dist/*.exe dist/*.zip dist/SHA256SUMS \
+            "${tag_args[@]}" \
+            --prerelease \
+            --generate-notes \
+            --title "Perseus ${TAG}"

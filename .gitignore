@@ -1,0 +1,56 @@
+# Rust / Cargo
+/target/
+**/*.rs.bk
+*.pdb
+
+# Tauri (esquemas gerados pelo tauri-build a cada build)
+src-tauri/gen/schemas/
+src-tauri/target/
+
+# Frontend (web/)
+node_modules/
+web/dist/
+web/.vite/
+*.tsbuildinfo
+npm-debug.log*
+
+# Testes e cobertura
+web/coverage/
+web/test-results/
+web/playwright-report/
+web/playwright-report-web/
+web/blob-report/
+lcov.info
+*.profraw
+
+# Vercel (versao online): `vercel link`/CLI grava IDs do projeto e da conta; `vercel build` gera `.vercel/output`
+.vercel/
+
+# Ambientes e segredos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# Saidas locais
+/dist/
+downloads/
+test_downloads/
+*.part
+*.log
+report*.json
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Testes de mutacao
+.stryker-tmp/
+web/reports/
+mutants.out*/

@@ -1,0 +1,30 @@
+[package]
+name = "perseus-cli"
+description = "CLI do Perseus: baixa faixas e playlists publicas do SoundCloud sem conta de usuario."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "perseus-cli"
+path = "src/main.rs"
+
+[dependencies]
+perseus-core.workspace = true
+tokio = { workspace = true, features = ["signal"] }
+tokio-util.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tracing-appender.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

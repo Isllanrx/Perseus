@@ -1,0 +1,41 @@
+[package]
+name = "perseus-core"
+description = "Dominio do Perseus: API publica do SoundCloud, planejamento, download, HLS e metadados."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+tokio.workspace = true
+tokio-util.workspace = true
+futures.workspace = true
+reqwest.workspace = true
+url.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+lofty.workspace = true
+m3u8-rs.workspace = true
+directories.workspace = true
+tempfile.workspace = true
+fastrand.workspace = true
+unicode-normalization.workspace = true
+uuid.workspace = true
+fs4.workspace = true
+
+[dev-dependencies]
+wiremock.workspace = true
+proptest.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true
+
+[features]
+test-util = []
