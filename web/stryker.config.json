@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "command",
+  "mutate": [
+    "src/lib/**/*.ts",
+    "src/i18n/**/*.ts",
+    "!src/**/*.test.ts",
+    "!src/i18n/messages/**",
+    "!src/lib/useJobEvents.ts"
+  ],
+  "reporters": [
+    "clear-text",
+    "html",
+    "progress",
+    "json"
+  ],
+  "htmlReporter": {
+    "fileName": "reports/mutation/index.html"
+  },
+  "thresholds": {
+    "high": 85,
+    "low": 70,
+    "break": 60
+  },
+  "concurrency": 3,
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": "always",
+  "commandRunner": {
+    "command": "npx vitest run src/lib src/i18n"
+  },
+  "coverageAnalysis": "off",
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  }
+}
