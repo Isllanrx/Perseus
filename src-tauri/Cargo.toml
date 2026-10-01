@@ -22,7 +22,7 @@ tauri.workspace = true
 tauri-plugin-opener.workspace = true
 tauri-plugin-dialog.workspace = true
 tauri-plugin-single-instance.workspace = true
-rfd = { version = "0.16", default-features = false, features = ["common-controls-v6"] }
+rfd = { version = "0.17", default-features = false, features = ["common-controls-v6"] }
 tokio.workspace = true
 tokio-util.workspace = true
 serde.workspace = true
